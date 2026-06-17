@@ -226,8 +226,9 @@ export default function ScanPage() {
               Scan failed
             </h2>
             <p className="text-neutral-500 mb-6">
-              We couldn&apos;t reach {scan.url}. Make sure the URL is correct and
-              publicly accessible.
+              We couldn&apos;t get a reliable read of {scan.url}. The site may be
+              blocking automated tools, or the URL might not be reachable —
+              double-check it and try again.
             </p>
             <Link
               href="/"

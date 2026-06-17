@@ -15,6 +15,10 @@ export interface ScrapedPage {
   responseTimeMs: number;
 }
 
+// Phrases that show up on bot-block / challenge pages instead of real content.
+const BOT_BLOCK_SIGNS =
+  /access denied|attention required|are you a (human|robot)|pardon our interruption|captcha|just a moment|checking your browser|request unsuccessful|blocked by network security/i;
+
 export async function scrapePage(url: string): Promise<ScrapedPage> {
   const normalizedUrl = url.startsWith("http") ? url : `https://${url}`;
   const start = Date.now();
@@ -32,6 +36,20 @@ export async function scrapePage(url: string): Promise<ScrapedPage> {
   const responseTimeMs = Date.now() - start;
   const html = response.data as string;
   const $ = cheerio.load(html);
+
+  const bodyText = $("body").text().replace(/\s+/g, " ").trim();
+  const looksBlocked =
+    response.status >= 400 ||
+    bodyText.length < 100 ||
+    BOT_BLOCK_SIGNS.test(bodyText.slice(0, 2000));
+
+  if (looksBlocked) {
+    throw new Error(
+      response.status >= 400
+        ? `Received HTTP ${response.status} while fetching ${normalizedUrl} — the site may be blocking automated requests.`
+        : `The page came back with almost no visible content, which usually means the site blocked the scan or renders entirely via JavaScript we can't execute.`
+    );
+  }
 
   const images = $("img")
     .map((_, el) => ({
