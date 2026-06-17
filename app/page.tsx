@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { Search, TrendingDown, Shield, Zap, Star } from "lucide-react";
 
 export default function HomePage() {
@@ -50,7 +51,15 @@ export default function HomePage() {
           <span className="font-bold text-xl text-slate-900">
             UX<span className="text-indigo-600">Audit</span>
           </span>
-          <span className="text-sm text-slate-500">Free ecommerce scan</span>
+          <div className="flex items-center gap-4">
+            <span className="text-sm text-slate-500">Free ecommerce scan</span>
+            <Link
+              href="/login"
+              className="text-sm font-medium text-indigo-600 hover:text-indigo-700"
+            >
+              Log in
+            </Link>
+          </div>
         </div>
       </nav>
 
