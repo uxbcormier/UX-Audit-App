@@ -4,6 +4,7 @@ import { runSeoChecks } from "./checks/seo";
 import { runUxChecks } from "./checks/ux";
 import { runTrustChecks } from "./checks/trust";
 import { runPerformanceChecks } from "./checks/performance";
+import { runBaymardChecks } from "./checks/baymard";
 import type {
   AuditIssue,
   ConversionSignal,
@@ -119,12 +120,14 @@ export async function runFullScan(url: string): Promise<{ teaser: TeaserResults;
   const seoIssues = runSeoChecks(page);
   const uxIssues = runUxChecks(page);
   const trustIssues = runTrustChecks(page);
+  const baymardIssues = runBaymardChecks(page);
   const perfIssues = psResult ? runPerformanceChecks(psResult) : [];
 
   const allIssues: AuditIssue[] = [
     ...seoIssues,
     ...uxIssues,
     ...trustIssues,
+    ...baymardIssues,
     ...perfIssues,
   ].sort((a, b) => SEVERITY_WEIGHT[b.severity] - SEVERITY_WEIGHT[a.severity]);
 

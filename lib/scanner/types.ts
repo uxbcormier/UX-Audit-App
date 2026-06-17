@@ -22,6 +22,7 @@ export interface AuditIssue {
   estimatedImpact: string; // e.g. "+3–5% conversion"
   fix: string; // paid-only: actionable remediation
   revenueLossEstimate: number; // annual USD estimate
+  source?: string; // citation for findings backed by external UX research
 }
 
 export interface RevenueOpportunity {
