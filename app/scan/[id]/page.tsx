@@ -116,9 +116,6 @@ function IssueCard({ issue, blurred }: { issue: AuditIssue; blurred?: boolean })
           <p>{issue.observation}</p>
           <p className="text-neutral-400">{issue.behavioralExplanation}</p>
           <p className="text-neutral-400">{issue.businessImplication}</p>
-          {issue.source && (
-            <p className="text-xs text-teal-400/80 mt-0.5">Source: {issue.source}</p>
-          )}
         </div>
       )}
       <p className="text-sm font-medium text-teal-400 mt-3">
