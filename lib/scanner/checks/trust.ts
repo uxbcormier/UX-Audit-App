@@ -13,10 +13,14 @@ export function runTrustChecks(page: ScrapedPage): AuditIssue[] {
     issues.push({
       id: "trust-no-badges",
       category: "Trust",
+      signal: "Trust Reinforcement",
       severity: "high",
       title: "No trust badges or payment icons",
-      description: "No trust signals (SSL badge, payment icons, security seals) detected on the page.",
-      impact: "17% of shoppers abandon checkout because they don't trust the site with their card.",
+      observation: "No security badges, guarantee seals, or payment method icons were detected on the page.",
+      behavioralExplanation:
+        "Shoppers about to enter card details look for visible reassurance that the site is legitimate; finding none reads as a risk signal, not a neutral absence.",
+      businessImplication: "Roughly 1 in 6 shoppers abandon checkout specifically because they don't trust the site with their card.",
+      estimatedImpact: "+3–6% checkout completion",
       fix: "Add payment method icons (Visa, Mastercard, PayPal) and a security badge near the CTA and checkout.",
       revenueLossEstimate: 3500,
     });
@@ -31,10 +35,14 @@ export function runTrustChecks(page: ScrapedPage): AuditIssue[] {
     issues.push({
       id: "trust-no-reviews",
       category: "Trust",
+      signal: "Trust Reinforcement",
       severity: "high",
       title: "No customer reviews or social proof detected",
-      description: "Your homepage shows no ratings, reviews, or testimonials.",
-      impact: "92% of shoppers read reviews before buying. No reviews = no trust.",
+      observation: "No ratings, reviews, or testimonials appear on the homepage.",
+      behavioralExplanation:
+        "Without proof other people bought and were satisfied, shoppers have only the brand's own claims to go on — which carries far less weight.",
+      businessImplication: "Roughly 9 in 10 shoppers read reviews before buying; their absence directly weakens purchase confidence.",
+      estimatedImpact: "+4–6% conversion",
       fix: "Add a reviews section or star ratings on your homepage and product pages.",
       revenueLossEstimate: 4500,
     });
@@ -48,10 +56,14 @@ export function runTrustChecks(page: ScrapedPage): AuditIssue[] {
     issues.push({
       id: "trust-no-return-policy",
       category: "Trust",
+      signal: "Trust Reinforcement",
       severity: "warning",
       title: "Return policy not visible on homepage",
-      description: "No mention of your return or refund policy on the main page.",
-      impact: "Shoppers are 40% more likely to buy when returns are clearly communicated.",
+      observation: "No mention of a return or refund policy appears on the main page.",
+      behavioralExplanation:
+        "Shoppers weighing a purchase they can't physically inspect first treat an unclear return path as added risk, and risk suppresses intent to buy.",
+      businessImplication: "Clear return terms measurably increase willingness to complete a purchase.",
+      estimatedImpact: "+2–4% conversion",
       fix: "Add a return policy callout ('Free 30-day returns') near the CTA or in the header.",
       revenueLossEstimate: 2000,
     });
@@ -65,10 +77,14 @@ export function runTrustChecks(page: ScrapedPage): AuditIssue[] {
     issues.push({
       id: "trust-no-privacy",
       category: "Trust",
+      signal: "Trust Reinforcement",
       severity: "warning",
       title: "No privacy policy link found",
-      description: "A privacy policy link is required by GDPR, CCPA, and most ad platforms.",
-      impact: "Missing privacy policy can block ad accounts and erode customer trust.",
+      observation: "No privacy policy link was found in the page.",
+      behavioralExplanation:
+        "Privacy-conscious shoppers look for this link as a baseline legitimacy check before entering personal or payment data.",
+      businessImplication: "Missing privacy policies can also block ad accounts and create compliance exposure under GDPR/CCPA.",
+      estimatedImpact: "+0.5–1.5% checkout completion",
       fix: "Add a privacy policy link to your footer and ensure it covers data collection.",
       revenueLossEstimate: 1000,
     });
@@ -82,10 +98,14 @@ export function runTrustChecks(page: ScrapedPage): AuditIssue[] {
     issues.push({
       id: "trust-no-about",
       category: "Trust",
+      signal: "Trust Reinforcement",
       severity: "low",
       title: "No 'About Us' link found",
-      description: "Shoppers look for an About page to verify legitimacy.",
-      impact: "Brand story pages increase conversion by building credibility.",
+      observation: "No About page or brand story link was found in navigation or footer.",
+      behavioralExplanation:
+        "First-time visitors size up whether a brand is real before buying from it, and an About page is often the page they check.",
+      businessImplication: "Brand story pages build credibility that measurably lifts conversion for unfamiliar shoppers.",
+      estimatedImpact: "+0.5–1% conversion",
       fix: "Add an 'About Us' page link in your navigation or footer.",
       revenueLossEstimate: 500,
     });

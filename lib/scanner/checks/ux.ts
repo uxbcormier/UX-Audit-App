@@ -14,10 +14,14 @@ export function runUxChecks(page: ScrapedPage): AuditIssue[] {
     issues.push({
       id: "ux-no-cta",
       category: "UX",
+      signal: "Add-to-Cart Friction",
       severity: "critical",
       title: "No clear call-to-action found",
-      description: "Your homepage has no obvious purchase or action button visible above the fold.",
-      impact: "Visitors don't know what to do next, causing immediate drop-off.",
+      observation: "No purchase or action button (e.g. 'Shop Now') was detected above the fold.",
+      behavioralExplanation:
+        "Users require multiple interactions before discovering what action to take, which delays evaluation and increases abandonment risk.",
+      businessImplication: "Visitors who don't see an obvious next step leave without ever entering the funnel.",
+      estimatedImpact: "+5–9% conversion",
       fix: "Add a prominent CTA button ('Shop Now', 'Get Started') above the fold with high contrast.",
       revenueLossEstimate: 4000,
     });
@@ -32,10 +36,14 @@ export function runUxChecks(page: ScrapedPage): AuditIssue[] {
     issues.push({
       id: "ux-no-contact",
       category: "UX",
+      signal: "Trust Reinforcement",
       severity: "high",
       title: "No visible contact information",
-      description: "Shoppers can't find a phone number, email, or chat widget.",
-      impact: "40% of shoppers abandon if they can't find support contact info.",
+      observation: "No phone number, email address, or chat widget was found on the homepage.",
+      behavioralExplanation:
+        "Shoppers with pre-purchase questions have no low-friction way to reach a human, so hesitation has nowhere to resolve itself.",
+      businessImplication: "A meaningful share of shoppers abandon when they can't find a support contact.",
+      estimatedImpact: "+3–5% checkout completion",
       fix: "Add a phone number or live chat widget to the header or footer.",
       revenueLossEstimate: 2500,
     });
@@ -49,10 +57,14 @@ export function runUxChecks(page: ScrapedPage): AuditIssue[] {
     issues.push({
       id: "ux-no-search",
       category: "UX",
+      signal: "Time-to-Product",
       severity: "high",
       title: "No site search found",
-      description: "Your site appears to lack a search bar.",
-      impact: "Shoppers who use search convert at 2–3x the rate of those who browse.",
+      observation: "No search bar was detected on the homepage.",
+      behavioralExplanation:
+        "Shoppers who already know what they want are forced to browse navigation instead, adding steps between intent and product discovery.",
+      businessImplication: "Search-intent shoppers convert at 2–3x the rate of browsers, and that lift is being left on the table.",
+      estimatedImpact: "+4–7% conversion",
       fix: "Add a prominent search bar to the header on all pages.",
       revenueLossEstimate: 2000,
     });
@@ -64,10 +76,14 @@ export function runUxChecks(page: ScrapedPage): AuditIssue[] {
     issues.push({
       id: "ux-weak-navigation",
       category: "UX",
+      signal: "Time-to-Product",
       severity: "warning",
       title: "Sparse navigation menu",
-      description: `Only ${navLinks} navigation links found. Shoppers can't explore your catalog.`,
-      impact: "Poor navigation increases bounce rates and reduces pages per session.",
+      observation: `Only ${navLinks} navigation link${navLinks === 1 ? "" : "s"} were found in the header.`,
+      behavioralExplanation:
+        "With few paths into the catalog, shoppers run out of obvious next clicks and bounce instead of exploring further.",
+      businessImplication: "Thin navigation reduces pages per session and the odds any given visit ends in a purchase.",
+      estimatedImpact: "+1–3% conversion",
       fix: "Add clear category navigation with dropdowns for product collections.",
       revenueLossEstimate: 1200,
     });
@@ -79,10 +95,14 @@ export function runUxChecks(page: ScrapedPage): AuditIssue[] {
     issues.push({
       id: "ux-no-viewport",
       category: "UX",
+      signal: "Mobile Complexity",
       severity: "critical",
       title: "Missing mobile viewport meta tag",
-      description: "No viewport meta tag found. Your site may not render correctly on mobile.",
-      impact: "60%+ of ecommerce traffic is mobile. Broken mobile UX kills conversions.",
+      observation: "No viewport meta tag was found in the page head.",
+      behavioralExplanation:
+        "Mobile browsers fall back to rendering a desktop-width layout, forcing shoppers to pinch and zoom through every screen.",
+      businessImplication: "Over 60% of ecommerce traffic is mobile — a broken mobile render kills conversion for the majority of visitors.",
+      estimatedImpact: "+6–10% mobile conversion",
       fix: 'Add <meta name="viewport" content="width=device-width, initial-scale=1"> to your <head>.',
       revenueLossEstimate: 5000,
     });

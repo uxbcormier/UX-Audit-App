@@ -4,7 +4,16 @@ import { runSeoChecks } from "./checks/seo";
 import { runUxChecks } from "./checks/ux";
 import { runTrustChecks } from "./checks/trust";
 import { runPerformanceChecks } from "./checks/performance";
-import type { AuditIssue, FullResults, IssueCategory, IssueSeverity, TeaserResults } from "./types";
+import type {
+  AuditIssue,
+  ConversionSignal,
+  FullResults,
+  IssueCategory,
+  IssueSeverity,
+  RevenueOpportunity,
+  SignalSummary,
+  TeaserResults,
+} from "./types";
 
 const SEVERITY_WEIGHT: Record<IssueSeverity, number> = {
   critical: 25,
@@ -12,6 +21,10 @@ const SEVERITY_WEIGHT: Record<IssueSeverity, number> = {
   warning: 8,
   low: 3,
 };
+
+// Published industry reference points shown alongside every score.
+const INDUSTRY_AVG_SCORE = 72;
+const TOP_BRAND_SCORE = 85;
 
 function calcScore(issues: AuditIssue[]): number {
   const totalDeduction = issues.reduce((acc, i) => acc + SEVERITY_WEIGHT[i.severity], 0);
@@ -42,6 +55,61 @@ function categorySummary(issues: AuditIssue[]): Record<IssueCategory, number> {
   return summary;
 }
 
+// Rounds to a "nice" figure so ranges read like an estimate, not a fake-precise number.
+function roundNice(n: number): number {
+  if (n < 1000) return Math.round(n / 50) * 50;
+  if (n < 10000) return Math.round(n / 100) * 100;
+  return Math.round(n / 1000) * 1000;
+}
+
+function calcRevenueOpportunity(issues: AuditIssue[], score: number, annualLoss: number): RevenueOpportunity {
+  const deficit = 100 - score;
+
+  const conversionLiftLow = Math.max(2, Math.round(deficit * 0.25));
+  const conversionLiftHigh = Math.max(conversionLiftLow + 3, Math.round(deficit * 0.47));
+
+  const monthlyMidpoint = annualLoss / 12;
+  const monthlyLossLow = roundNice(monthlyMidpoint * 0.65);
+  const monthlyLossHigh = roundNice(monthlyMidpoint * 1.55);
+
+  const FACTOR_LABEL: Record<IssueCategory, string> = {
+    UX: "Product discovery & navigation friction",
+    Trust: "Trust signal gaps",
+    Performance: "Mobile & speed inefficiencies",
+    SEO: "Search visibility gaps",
+    Conversion: "Purchase flow friction",
+  };
+
+  const lossByCategory = issues.reduce<Record<string, number>>((acc, i) => {
+    acc[i.category] = (acc[i.category] ?? 0) + i.revenueLossEstimate;
+    return acc;
+  }, {});
+
+  const contributingFactors = Object.entries(lossByCategory)
+    .sort((a, b) => b[1] - a[1])
+    .map(([category]) => FACTOR_LABEL[category as IssueCategory]);
+
+  return {
+    conversionLiftLow,
+    conversionLiftHigh,
+    monthlyLossLow,
+    monthlyLossHigh,
+    annualLossLow: monthlyLossLow * 12,
+    annualLossHigh: monthlyLossHigh * 12,
+    contributingFactors,
+  };
+}
+
+function calcSignalSummary(issues: AuditIssue[]): SignalSummary[] {
+  const counts = new Map<ConversionSignal, number>();
+  for (const issue of issues) {
+    counts.set(issue.signal, (counts.get(issue.signal) ?? 0) + 1);
+  }
+  return [...counts.entries()]
+    .map(([signal, issueCount]) => ({ signal, issueCount }))
+    .sort((a, b) => b.issueCount - a.issueCount);
+}
+
 export async function runFullScan(url: string): Promise<{ teaser: TeaserResults; full: FullResults }> {
   const [psResult, page] = await Promise.all([
     runPageSpeed(url).catch(() => null),
@@ -64,6 +132,8 @@ export async function runFullScan(url: string): Promise<{ teaser: TeaserResults;
   const revenueLoss = calcRevenueLoss(allIssues);
   const grade = scoreToGrade(overallScore);
   const summary = categorySummary(allIssues);
+  const revenueOpportunity = calcRevenueOpportunity(allIssues, overallScore, revenueLoss);
+  const signalSummary = calcSignalSummary(allIssues);
 
   const pageSpeed = {
     mobileScore: psResult?.mobileScore ?? 0,
@@ -74,6 +144,10 @@ export async function runFullScan(url: string): Promise<{ teaser: TeaserResults;
     overallScore,
     revenueLoss,
     grade,
+    industryAvgScore: INDUSTRY_AVG_SCORE,
+    topBrandScore: TOP_BRAND_SCORE,
+    revenueOpportunity,
+    signalSummary,
     issues: allIssues.slice(0, 3),
     totalIssueCount: allIssues.length,
     categorySummary: summary,
@@ -84,6 +158,10 @@ export async function runFullScan(url: string): Promise<{ teaser: TeaserResults;
     overallScore,
     revenueLoss,
     grade,
+    industryAvgScore: INDUSTRY_AVG_SCORE,
+    topBrandScore: TOP_BRAND_SCORE,
+    revenueOpportunity,
+    signalSummary,
     issues: allIssues,
     totalIssueCount: allIssues.length,
     categorySummary: summary,

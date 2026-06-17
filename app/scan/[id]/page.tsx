@@ -7,6 +7,7 @@ import {
   CheckCircle,
   Lock,
   TrendingDown,
+  TrendingUp,
   Zap,
   Search,
   Shield,
@@ -14,7 +15,7 @@ import {
   ArrowLeft,
 } from "lucide-react";
 import Link from "next/link";
-import type { TeaserResults, FullResults, AuditIssue } from "@/lib/scanner/types";
+import type { TeaserResults, FullResults, AuditIssue, ConversionSignal } from "@/lib/scanner/types";
 import PaywallModal from "@/components/PaywallModal";
 
 interface ScanData {
@@ -36,27 +37,53 @@ const CATEGORY_ICON: Record<string, React.ReactNode> = {
   Conversion: <TrendingDown size={14} />,
 };
 
-const SEVERITY_COLOR: Record<string, string> = {
-  critical: "bg-red-100 text-red-700 border-red-200",
-  high: "bg-orange-100 text-orange-700 border-orange-200",
-  warning: "bg-yellow-100 text-yellow-700 border-yellow-200",
-  low: "bg-slate-100 text-slate-600 border-slate-200",
+const SIGNAL_LABEL: Record<ConversionSignal, string> = {
+  "Time-to-Product": "Time-to-product friction",
+  "Add-to-Cart Friction": "Add-to-cart visibility risk",
+  "Trust Reinforcement": "Trust signal gaps",
+  "Mobile Complexity": "Mobile interaction inefficiencies",
+  "Search Visibility": "Search visibility gaps",
 };
 
-function ScoreRing({ score }: { score: number }) {
+const SEVERITY_COLOR: Record<string, string> = {
+  critical: "bg-red-950/50 text-red-300 border-red-900/60",
+  high: "bg-orange-950/40 text-orange-300 border-orange-900/50",
+  warning: "bg-yellow-950/30 text-yellow-300 border-yellow-900/40",
+  low: "bg-neutral-800/60 text-neutral-300 border-neutral-700",
+};
+
+function ScoreHero({
+  score,
+  industryAvgScore,
+  topBrandScore,
+  totalIssueCount,
+}: {
+  score: number;
+  industryAvgScore: number;
+  topBrandScore: number;
+  totalIssueCount: number;
+}) {
   const color =
-    score >= 80
-      ? "text-green-500"
-      : score >= 60
-        ? "text-yellow-500"
-        : "text-red-500";
-  const grade =
-    score >= 90 ? "A" : score >= 80 ? "B" : score >= 70 ? "C" : score >= 60 ? "D" : "F";
+    score >= 80 ? "text-emerald-400" : score >= 60 ? "text-yellow-400" : "text-red-400";
 
   return (
-    <div className="flex flex-col items-center justify-center w-32 h-32 rounded-full border-8 border-slate-100 bg-white shadow-sm">
-      <span className={`text-4xl font-bold ${color}`}>{grade}</span>
-      <span className="text-sm text-slate-500">{score}/100</span>
+    <div className="flex flex-col items-center sm:items-start text-center sm:text-left">
+      <span className="text-7xl sm:text-8xl font-bold tracking-tight" style={{ lineHeight: 1 }}>
+        <span className={color}>{score}</span>
+      </span>
+      <span className="text-xs uppercase tracking-[0.2em] text-neutral-500 mt-2">
+        UX Score
+      </span>
+      <p className="text-sm text-neutral-400 mt-4 max-w-sm">
+        This score reflects lost conversion opportunities across your experience.
+      </p>
+      <p className="text-xs text-neutral-500 mt-3">
+        Average ecommerce score: <span className="text-neutral-300">{industryAvgScore}</span>{" "}
+        · Top brands: <span className="text-neutral-300">{topBrandScore}+</span>
+      </p>
+      <span className="inline-flex items-center gap-1.5 mt-5 text-xs font-medium text-teal-400 bg-teal-950/40 border border-teal-900/50 rounded-full px-3 py-1">
+        {totalIssueCount} insight{totalIssueCount !== 1 ? "s" : ""} detected
+      </span>
     </div>
   );
 }
@@ -67,8 +94,9 @@ function IssueCard({ issue, blurred }: { issue: AuditIssue; blurred?: boolean })
       className={`relative rounded-xl border p-5 transition ${blurred ? "select-none" : ""} ${SEVERITY_COLOR[issue.severity]}`}
     >
       {blurred && (
-        <div className="absolute inset-0 rounded-xl backdrop-blur-sm bg-white/60 flex items-center justify-center">
-          <Lock size={20} className="text-slate-500" />
+        <div className="absolute inset-0 rounded-xl backdrop-blur-sm bg-neutral-950/70 flex flex-col items-center justify-center gap-1.5">
+          <Lock size={18} className="text-neutral-400" />
+          <span className="text-xs text-neutral-400">Unlock to view</span>
         </div>
       )}
       <div className="flex items-start justify-between gap-3 mb-2">
@@ -82,14 +110,20 @@ function IssueCard({ issue, blurred }: { issue: AuditIssue; blurred?: boolean })
           {issue.severity}
         </span>
       </div>
-      <h3 className="font-semibold text-slate-900 mb-1">{issue.title}</h3>
-      <p className="text-sm text-slate-600 mb-2">{issue.description}</p>
-      <p className="text-sm font-medium">
-        💸 Impact: {issue.impact}
+      <h3 className="font-semibold text-neutral-100 mb-2">{issue.title}</h3>
+      {!blurred && (
+        <div className="flex flex-col gap-1.5 text-sm text-neutral-300">
+          <p>{issue.observation}</p>
+          <p className="text-neutral-400">{issue.behavioralExplanation}</p>
+          <p className="text-neutral-400">{issue.businessImplication}</p>
+        </div>
+      )}
+      <p className="text-sm font-medium text-teal-400 mt-3">
+        Estimated impact: {issue.estimatedImpact}
       </p>
       {!blurred && (
-        <p className="text-sm mt-2 text-slate-700">
-          ✅ Fix: {issue.fix}
+        <p className="text-sm mt-2 text-neutral-300 border-t border-white/10 pt-2">
+          Fix: {issue.fix}
         </p>
       )}
     </div>
@@ -115,8 +149,6 @@ export default function ScanPage() {
   }, [id]);
 
   useEffect(() => {
-    let interval: ReturnType<typeof setInterval>;
-
     async function poll() {
       const data = await fetchScan();
       if (data?.status === "COMPLETE" || data?.status === "FAILED") {
@@ -124,17 +156,17 @@ export default function ScanPage() {
       }
     }
 
+    const interval = setInterval(poll, 3000);
     poll();
-    interval = setInterval(poll, 3000);
     return () => clearInterval(interval);
   }, [fetchScan]);
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+      <div className="min-h-screen flex items-center justify-center bg-neutral-950">
         <div className="text-center">
-          <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-slate-600 font-medium">Starting your scan…</p>
+          <div className="w-12 h-12 border-4 border-teal-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-neutral-400 font-medium">Starting your scan…</p>
         </div>
       </div>
     );
@@ -142,8 +174,8 @@ export default function ScanPage() {
 
   if (!scan) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <p className="text-slate-500">Scan not found.</p>
+      <div className="min-h-screen flex items-center justify-center bg-neutral-950">
+        <p className="text-neutral-500">Scan not found.</p>
       </div>
     );
   }
@@ -155,31 +187,31 @@ export default function ScanPage() {
   const results = full ?? teaser;
 
   return (
-    <main className="min-h-screen bg-slate-50">
+    <main className="min-h-screen bg-neutral-950">
       {/* Nav */}
-      <nav className="border-b border-slate-200 bg-white px-6 py-4">
-        <div className="max-w-4xl mx-auto flex items-center gap-4">
-          <Link href="/" className="text-slate-500 hover:text-slate-700">
+      <nav className="border-b border-neutral-800 px-6 py-4">
+        <div className="max-w-3xl mx-auto flex items-center gap-4">
+          <Link href="/" className="text-neutral-500 hover:text-neutral-300">
             <ArrowLeft size={18} />
           </Link>
-          <span className="font-bold text-lg text-slate-900">
-            UX<span className="text-indigo-600">Audit</span>
+          <span className="font-bold text-lg text-neutral-100">
+            UX<span className="text-teal-400">Audit</span>
           </span>
-          <span className="text-sm text-slate-400 ml-auto truncate max-w-xs">
+          <span className="text-sm text-neutral-500 ml-auto truncate max-w-xs">
             {scan.url}
           </span>
         </div>
       </nav>
 
-      <div className="max-w-4xl mx-auto px-6 py-10">
+      <div className="max-w-3xl mx-auto px-6 py-14">
         {/* Running state */}
         {isRunning && (
-          <div className="text-center py-20">
-            <div className="w-16 h-16 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-6" />
-            <h2 className="text-2xl font-bold text-slate-900 mb-2">
+          <div className="text-center py-24">
+            <div className="w-16 h-16 border-4 border-teal-500 border-t-transparent rounded-full animate-spin mx-auto mb-6" />
+            <h2 className="text-2xl font-bold text-neutral-100 mb-2">
               Scanning your store…
             </h2>
-            <p className="text-slate-500">
+            <p className="text-neutral-500">
               Checking performance, SEO, UX, and trust signals. This takes about
               30–60 seconds.
             </p>
@@ -188,18 +220,18 @@ export default function ScanPage() {
 
         {/* Failed state */}
         {isFailed && (
-          <div className="text-center py-20">
+          <div className="text-center py-24">
             <AlertTriangle size={48} className="text-red-400 mx-auto mb-4" />
-            <h2 className="text-2xl font-bold text-slate-900 mb-2">
+            <h2 className="text-2xl font-bold text-neutral-100 mb-2">
               Scan failed
             </h2>
-            <p className="text-slate-500 mb-6">
+            <p className="text-neutral-500 mb-6">
               We couldn&apos;t reach {scan.url}. Make sure the URL is correct and
               publicly accessible.
             </p>
             <Link
               href="/"
-              className="inline-flex items-center gap-2 px-5 py-2.5 bg-indigo-600 text-white rounded-xl font-medium"
+              className="inline-flex items-center gap-2 px-5 py-2.5 bg-teal-500 text-neutral-950 rounded-xl font-medium hover:bg-teal-400 transition"
             >
               Try another URL
             </Link>
@@ -208,11 +240,11 @@ export default function ScanPage() {
 
         {/* Payment success banner */}
         {paymentResult === "success" && scan.isPaid && (
-          <div className="flex items-center gap-3 bg-green-50 border border-green-200 rounded-xl px-5 py-4 mb-8">
-            <CheckCircle size={20} className="text-green-600 shrink-0" />
+          <div className="flex items-center gap-3 bg-emerald-950/40 border border-emerald-900/50 rounded-xl px-5 py-4 mb-10">
+            <CheckCircle size={20} className="text-emerald-400 shrink-0" />
             <div>
-              <p className="font-semibold text-green-800">Payment successful!</p>
-              <p className="text-sm text-green-700">
+              <p className="font-semibold text-emerald-300">Payment successful!</p>
+              <p className="text-sm text-emerald-400/80">
                 Your full audit is unlocked. All issues and fixes are visible below.
               </p>
             </div>
@@ -222,141 +254,175 @@ export default function ScanPage() {
         {/* Results */}
         {scan.status === "COMPLETE" && results && (
           <>
-            {/* Score header */}
-            <div className="bg-white rounded-2xl border border-slate-200 p-8 mb-8 flex flex-col sm:flex-row items-center gap-8">
-              <ScoreRing score={results.overallScore} />
-              <div className="flex-1 text-center sm:text-left">
-                <h1 className="text-2xl font-bold text-slate-900 mb-1">
-                  UX Audit Complete
-                </h1>
-                <p className="text-slate-500 text-sm mb-4 truncate">{scan.url}</p>
-                <div className="flex flex-wrap gap-4 justify-center sm:justify-start">
-                  <div className="flex flex-col">
-                    <span className="text-2xl font-bold text-red-600">
-                      ${results.revenueLoss.toLocaleString()}
-                    </span>
-                    <span className="text-xs text-slate-500">
-                      Est. annual revenue loss
-                    </span>
-                  </div>
-                  <div className="flex flex-col">
-                    <span className="text-2xl font-bold text-slate-800">
-                      {results.totalIssueCount}
-                    </span>
-                    <span className="text-xs text-slate-500">issues found</span>
-                  </div>
-                  <div className="flex flex-col">
-                    <span className="text-2xl font-bold text-indigo-600">
-                      {results.pageSpeed.mobileScore}
-                    </span>
-                    <span className="text-xs text-slate-500">mobile score</span>
-                  </div>
-                </div>
-              </div>
-            </div>
+            {/* 1. Score */}
+            <section className="mb-16">
+              <ScoreHero
+                score={results.overallScore}
+                industryAvgScore={results.industryAvgScore}
+                topBrandScore={results.topBrandScore}
+                totalIssueCount={results.totalIssueCount}
+              />
+            </section>
 
-            {/* Category breakdown */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
-              {Object.entries(results.categorySummary)
-                .filter(([, count]) => count > 0)
-                .map(([cat, count]) => (
-                  <div
-                    key={cat}
-                    className="bg-white rounded-xl border border-slate-200 p-4 text-center"
-                  >
-                    <div className="flex justify-center mb-1 text-slate-500">
-                      {CATEGORY_ICON[cat]}
-                    </div>
-                    <span className="text-2xl font-bold text-slate-900">{count}</span>
-                    <p className="text-xs text-slate-500 mt-0.5">{cat}</p>
+            {/* 2. Revenue Opportunity */}
+            <section className="mb-16 border-t border-neutral-800 pt-12">
+              <div className="flex items-center gap-2 text-teal-400 mb-4">
+                <TrendingUp size={16} />
+                <span className="text-xs font-semibold uppercase tracking-[0.15em]">
+                  Revenue Opportunity Detected
+                </span>
+              </div>
+
+              <p className="text-3xl sm:text-4xl font-bold text-neutral-100 mb-1">
+                +{results.revenueOpportunity.conversionLiftLow}–
+                {results.revenueOpportunity.conversionLiftHigh}%
+              </p>
+              <p className="text-sm text-neutral-500 mb-8">Estimated conversion lift available</p>
+
+              <p className="text-2xl sm:text-3xl font-bold text-red-400 mb-1">
+                ${results.revenueOpportunity.monthlyLossLow.toLocaleString()}–$
+                {results.revenueOpportunity.monthlyLossHigh.toLocaleString()}
+                <span className="text-base text-neutral-500 font-normal">/month</span>
+              </p>
+              <p className="text-sm text-neutral-500 mb-6">
+                Estimated revenue being left on the table — roughly $
+                {results.revenueOpportunity.annualLossLow.toLocaleString()}–$
+                {results.revenueOpportunity.annualLossHigh.toLocaleString()} annually
+              </p>
+
+              <p className="text-xs text-neutral-500 mb-4">
+                Based on: {results.revenueOpportunity.contributingFactors.join(" · ")}
+              </p>
+
+              {scan.isPaid ? (
+                <p className="text-sm text-neutral-400 max-w-lg">
+                  This range is derived from the severity-weighted issues detected below,
+                  projected against typical ecommerce traffic and conversion benchmarks for
+                  a store at your audit score.
+                </p>
+              ) : (
+                <button
+                  onClick={() => setShowPaywall(true)}
+                  className="text-sm font-medium text-teal-400 hover:text-teal-300 inline-flex items-center gap-1"
+                >
+                  How this is calculated <Lock size={12} />
+                </button>
+              )}
+            </section>
+
+            {/* 3. Conversion Signals */}
+            <section className="mb-16 border-t border-neutral-800 pt-12">
+              <h2 className="text-xs font-semibold uppercase tracking-[0.15em] text-neutral-500 mb-5">
+                Conversion Signals Detected
+              </h2>
+              <div className="flex flex-col gap-3">
+                {results.signalSummary.map(({ signal, issueCount }) => (
+                  <div key={signal} className="flex items-center justify-between py-2 border-b border-neutral-900">
+                    <span className="text-neutral-200 text-sm">{SIGNAL_LABEL[signal]}</span>
+                    <span className="text-xs text-neutral-500">
+                      {issueCount} signal{issueCount !== 1 ? "s" : ""}
+                    </span>
                   </div>
                 ))}
-            </div>
+              </div>
+            </section>
 
-            {/* Issues list */}
-            <div className="mb-6">
-              <h2 className="text-xl font-bold text-slate-900 mb-4">
-                {scan.isPaid ? "All issues found" : "Top issues found"}
+            {/* 4. High Impact Insights */}
+            <section className="mb-12 border-t border-neutral-800 pt-12">
+              <h2 className="text-xs font-semibold uppercase tracking-[0.15em] text-neutral-500 mb-5">
+                {scan.isPaid ? "All issues found" : "High Impact Insights"}
               </h2>
 
               <div className="flex flex-col gap-4">
-                {results.issues.map((issue) => (
-                  <IssueCard key={issue.id} issue={issue} />
-                ))}
-
-                {/* Blurred locked cards */}
-                {!scan.isPaid && results.totalIssueCount > 3 && (
-                  <>
-                    {[...Array(Math.min(3, results.totalIssueCount - 3))].map(
-                      (_, i) => (
-                        <IssueCard
-                          key={`locked-${i}`}
-                          issue={{
-                            id: `locked-${i}`,
-                            category: "UX",
-                            severity: i === 0 ? "critical" : "high",
-                            title: "Hidden issue — unlock full report",
-                            description:
-                              "This issue is hidden behind the paywall. Unlock the full report to see all issues and fixes.",
-                            impact: "Unlock to see the full revenue impact.",
-                            fix: "Purchase the full report to see actionable fix instructions.",
-                            revenueLossEstimate: 0,
-                          }}
-                          blurred
-                        />
-                      )
-                    )}
-                  </>
-                )}
+                {scan.isPaid
+                  ? results.issues.map((issue) => <IssueCard key={issue.id} issue={issue} />)
+                  : teaser?.issues.map((issue, i) => (
+                      <IssueCard key={issue.id} issue={issue} blurred={i === 2} />
+                    ))}
               </div>
-            </div>
+            </section>
 
-            {/* Paywall CTA */}
+            {/* 5. Paywall */}
             {!scan.isPaid && (
-              <div className="bg-gradient-to-br from-indigo-900 to-indigo-700 text-white rounded-2xl p-8 text-center">
-                <Lock size={32} className="mx-auto mb-3 opacity-80" />
-                <h2 className="text-2xl font-bold mb-2">
-                  {results.totalIssueCount - 3} more issue
-                  {results.totalIssueCount - 3 !== 1 ? "s" : ""} found
+              <section className="mb-16 bg-neutral-900 border border-neutral-800 rounded-2xl p-8 sm:p-10 text-center">
+                <Lock size={28} className="mx-auto mb-4 text-teal-400" />
+                <h2 className="text-2xl sm:text-3xl font-bold text-neutral-100 mb-2">
+                  You&apos;re leaving revenue on the table.
                 </h2>
-                <p className="text-indigo-200 mb-2 text-sm">
-                  You&apos;re leaving an estimated{" "}
-                  <strong className="text-white">
-                    ${results.revenueLoss.toLocaleString()}
-                  </strong>{" "}
-                  per year on the table.
+                <p className="text-neutral-400 mb-6 text-sm">
+                  {results.totalIssueCount} conversion insights detected. You&apos;ve only seen 2.
                 </p>
-                <p className="text-indigo-200 mb-6 text-sm max-w-md mx-auto">
-                  Get every issue, every fix, and every revenue estimate in your
-                  full audit report.
-                </p>
+                <ul className="text-sm text-neutral-400 mb-8 flex flex-col gap-1.5 max-w-sm mx-auto text-left">
+                  {[
+                    "Where users drop off",
+                    "What's causing hesitation",
+                    "What to fix first",
+                    "Which opportunities matter most",
+                  ].map((item) => (
+                    <li key={item} className="flex items-start gap-2">
+                      <CheckCircle size={15} className="text-teal-400 shrink-0 mt-0.5" />
+                      {item}
+                    </li>
+                  ))}
+                </ul>
                 <button
                   onClick={() => setShowPaywall(true)}
-                  className="px-8 py-3 bg-white text-indigo-700 font-bold rounded-xl hover:bg-indigo-50 transition text-lg"
+                  className="px-8 py-3 bg-teal-500 hover:bg-teal-400 text-neutral-950 font-bold rounded-xl transition text-lg"
                 >
                   Unlock Full Report — $129
                 </button>
-                <p className="text-indigo-300 text-xs mt-3">
+                <p className="text-neutral-500 text-xs mt-3">
                   One-time payment · Instant access · 30-day money-back guarantee
                 </p>
-              </div>
+              </section>
             )}
+
+            {/* 6. Detailed analysis */}
+            <section className="border-t border-neutral-800 pt-12">
+              <h2 className="text-xs font-semibold uppercase tracking-[0.15em] text-neutral-500 mb-5">
+                Full Conversion Signal Breakdown
+              </h2>
+
+              <div className={`relative grid grid-cols-2 sm:grid-cols-4 gap-4 ${!scan.isPaid ? "select-none" : ""}`}>
+                {!scan.isPaid && (
+                  <div className="absolute inset-0 z-10 rounded-xl backdrop-blur-sm bg-neutral-950/70 flex items-center justify-center">
+                    <span className="text-sm text-neutral-400 flex items-center gap-1.5">
+                      <Lock size={14} /> Full analysis locked
+                    </span>
+                  </div>
+                )}
+                {Object.entries(results.categorySummary)
+                  .filter(([, count]) => count > 0)
+                  .map(([cat, count]) => (
+                    <div
+                      key={cat}
+                      className="bg-neutral-900 rounded-xl border border-neutral-800 p-4 text-center"
+                    >
+                      <div className="flex justify-center mb-1 text-neutral-500">
+                        {CATEGORY_ICON[cat]}
+                      </div>
+                      <span className="text-2xl font-bold text-neutral-100">{count}</span>
+                      <p className="text-xs text-neutral-500 mt-0.5">{cat}</p>
+                    </div>
+                  ))}
+              </div>
+            </section>
 
             {/* Full report recommendations */}
             {scan.isPaid && full?.recommendations && full.recommendations.length > 0 && (
-              <div className="bg-white rounded-2xl border border-slate-200 p-6 mt-6">
-                <h2 className="font-bold text-slate-900 mb-4">
+              <section className="bg-neutral-900 border border-neutral-800 rounded-2xl p-6 mt-10">
+                <h2 className="font-bold text-neutral-100 mb-4">
                   Priority recommendations
                 </h2>
                 <ul className="flex flex-col gap-2">
                   {full.recommendations.map((rec, i) => (
-                    <li key={i} className="flex items-start gap-3 text-sm text-slate-700">
-                      <CheckCircle size={16} className="text-green-500 shrink-0 mt-0.5" />
+                    <li key={i} className="flex items-start gap-3 text-sm text-neutral-300">
+                      <CheckCircle size={16} className="text-teal-400 shrink-0 mt-0.5" />
                       {rec}
                     </li>
                   ))}
                 </ul>
-              </div>
+              </section>
             )}
           </>
         )}

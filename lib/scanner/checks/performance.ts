@@ -8,10 +8,14 @@ export function runPerformanceChecks(ps: PageSpeedResult): AuditIssue[] {
     issues.push({
       id: "perf-poor-mobile-score",
       category: "Performance",
+      signal: "Mobile Complexity",
       severity: "critical",
       title: `Poor mobile performance score (${ps.mobileScore}/100)`,
-      description: "Your site scores poorly on Google's mobile performance benchmark.",
-      impact: "53% of mobile users abandon sites that take over 3 seconds to load.",
+      observation: `The homepage scores ${ps.mobileScore}/100 on Google's mobile performance benchmark.`,
+      behavioralExplanation:
+        "Mobile shoppers on the move have the least patience for a slow page, and most give up scrolling before content finishes loading.",
+      businessImplication: "Over half of mobile users abandon sites that take more than 3 seconds to load.",
+      estimatedImpact: "+7–12% mobile conversion",
       fix: "Compress images, remove unused JavaScript, and enable server-side caching.",
       revenueLossEstimate: 5000,
     });
@@ -19,10 +23,14 @@ export function runPerformanceChecks(ps: PageSpeedResult): AuditIssue[] {
     issues.push({
       id: "perf-average-mobile-score",
       category: "Performance",
+      signal: "Mobile Complexity",
       severity: "high",
       title: `Below-average mobile performance (${ps.mobileScore}/100)`,
-      description: "Your mobile performance score needs improvement.",
-      impact: "Every 1-second delay in page load reduces conversions by up to 7%.",
+      observation: `The homepage scores ${ps.mobileScore}/100 on mobile, below Google's recommended threshold.`,
+      behavioralExplanation:
+        "Each extra second of load time gives an impatient mobile shopper one more reason to bounce back to search results.",
+      businessImplication: "Every 1-second delay in page load reduces conversions by up to 7%.",
+      estimatedImpact: "+3–5% mobile conversion",
       fix: "Optimize images, defer non-critical scripts, and use a CDN.",
       revenueLossEstimate: 2500,
     });
@@ -32,10 +40,14 @@ export function runPerformanceChecks(ps: PageSpeedResult): AuditIssue[] {
     issues.push({
       id: "perf-poor-lcp",
       category: "Performance",
+      signal: "Mobile Complexity",
       severity: "critical",
       title: `Slow Largest Contentful Paint (${(ps.lcp / 1000).toFixed(1)}s)`,
-      description: "LCP measures how long the main content takes to appear. Google recommends under 2.5s.",
-      impact: "Poor LCP is a Core Web Vital that directly hurts Google rankings.",
+      observation: `Largest Contentful Paint is ${(ps.lcp / 1000).toFixed(1)}s; Google recommends under 2.5s.`,
+      behavioralExplanation:
+        "Shoppers judge a site as broken or untrustworthy before the main content even finishes painting on screen.",
+      businessImplication: "Slow LCP is a Core Web Vital that directly suppresses Google rankings as well as conversion.",
+      estimatedImpact: "+3–5% conversion",
       fix: "Optimize and preload your hero image. Use next-gen image formats (WebP/AVIF).",
       revenueLossEstimate: 3500,
     });
@@ -45,10 +57,14 @@ export function runPerformanceChecks(ps: PageSpeedResult): AuditIssue[] {
     issues.push({
       id: "perf-poor-cls",
       category: "Performance",
+      signal: "Mobile Complexity",
       severity: "high",
       title: `High Cumulative Layout Shift (${ps.cls.toFixed(3)})`,
-      description: "Elements on your page shift during load, causing accidental clicks and frustration.",
-      impact: "Layout shifts cause mis-taps on mobile and erode user trust.",
+      observation: `Cumulative Layout Shift measures ${ps.cls.toFixed(3)}, well above Google's 0.1 threshold.`,
+      behavioralExplanation:
+        "Elements jumping around mid-load cause shoppers to mis-tap buttons or links, which reads as a broken, untrustworthy experience.",
+      businessImplication: "Layout instability causes accidental taps and erodes confidence in the rest of the checkout flow.",
+      estimatedImpact: "+1–3% mobile conversion",
       fix: "Set explicit width/height on images and avoid dynamically injected content above the fold.",
       revenueLossEstimate: 1500,
     });
@@ -58,10 +74,14 @@ export function runPerformanceChecks(ps: PageSpeedResult): AuditIssue[] {
     issues.push({
       id: "perf-poor-ttfb",
       category: "Performance",
+      signal: "Mobile Complexity",
       severity: "high",
       title: `Slow server response time (${Math.round(ps.ttfb)}ms TTFB)`,
-      description: "Your server takes too long to respond. Google recommends under 800ms.",
-      impact: "Slow servers drag down every other performance metric.",
+      observation: `Time to First Byte is ${Math.round(ps.ttfb)}ms; Google recommends under 800ms.`,
+      behavioralExplanation:
+        "Every other performance metric is downstream of this one — shoppers are waiting before the page has even started rendering.",
+      businessImplication: "Slow server response time drags down every other speed metric shoppers experience.",
+      estimatedImpact: "+2–4% conversion",
       fix: "Upgrade your hosting plan, enable server-side caching, or switch to a CDN-backed host.",
       revenueLossEstimate: 2000,
     });
@@ -71,10 +91,14 @@ export function runPerformanceChecks(ps: PageSpeedResult): AuditIssue[] {
     issues.push({
       id: "perf-desktop-gap",
       category: "Performance",
+      signal: "Mobile Complexity",
       severity: "warning",
       title: "Large gap between mobile and desktop performance",
-      description: `Desktop score: ${ps.desktopScore} vs mobile: ${ps.mobileScore}. Significant disparity.`,
-      impact: "Inconsistent experiences across devices hurt conversions.",
+      observation: `Desktop scores ${ps.desktopScore}/100 versus ${ps.mobileScore}/100 on mobile — a significant disparity.`,
+      behavioralExplanation:
+        "Whichever device a shopper happens to be on, an inconsistent experience signals the site wasn't built with them in mind.",
+      businessImplication: "Device-inconsistent experiences quietly suppress conversion on whichever platform is weaker.",
+      estimatedImpact: "+1–2% conversion",
       fix: "Audit device-specific assets and ensure responsive images are correctly sized.",
       revenueLossEstimate: 800,
     });
