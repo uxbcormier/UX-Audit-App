@@ -1,6 +1,13 @@
 export type IssueSeverity = "critical" | "high" | "warning" | "low";
 export type IssueCategory = "SEO" | "UX" | "Trust" | "Performance" | "Conversion";
 
+// How sure we are this finding reflects reality, given what a single homepage
+// fetch can actually verify (vs. a heuristic that could miss edge cases).
+export type IssueConfidence = "high" | "medium";
+
+// Rough cost to fix, used alongside severity to surface "quick win" issues first.
+export type IssueEffort = "low" | "medium" | "high";
+
 // Conversion-signal buckets used for the free-tier "signals detected" narrative.
 // Distinct from IssueCategory, which drives the full (paid) category breakdown.
 export type ConversionSignal =
@@ -22,6 +29,8 @@ export interface AuditIssue {
   estimatedImpact: string; // e.g. "+3–5% conversion"
   fix: string; // paid-only: actionable remediation
   revenueLossEstimate: number; // annual USD estimate
+  confidence: IssueConfidence;
+  effort: IssueEffort;
 }
 
 export interface RevenueOpportunity {

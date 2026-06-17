@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import type { TeaserResults, FullResults, AuditIssue, ConversionSignal } from "@/lib/scanner/types";
+import { derivePriority } from "@/lib/scanner/priority";
 import PaywallModal from "@/components/PaywallModal";
 
 interface ScanData {
@@ -50,6 +51,19 @@ const SEVERITY_COLOR: Record<string, string> = {
   high: "bg-orange-950/40 text-orange-300 border-orange-900/50",
   warning: "bg-yellow-950/30 text-yellow-300 border-yellow-900/40",
   low: "bg-neutral-800/60 text-neutral-300 border-neutral-700",
+};
+
+const PRIORITY_COLOR: Record<string, string> = {
+  "Quick win": "bg-teal-950/40 text-teal-300 border-teal-900/50",
+  "Major project": "bg-purple-950/40 text-purple-300 border-purple-900/50",
+  "Easy fix": "bg-neutral-800/60 text-neutral-300 border-neutral-700",
+  "Low priority": "bg-neutral-900/60 text-neutral-500 border-neutral-800",
+};
+
+const EFFORT_LABEL: Record<string, string> = {
+  low: "Low effort",
+  medium: "Medium effort",
+  high: "High effort",
 };
 
 function ScoreHero({
@@ -89,6 +103,8 @@ function ScoreHero({
 }
 
 function IssueCard({ issue, blurred }: { issue: AuditIssue; blurred?: boolean }) {
+  const priority = derivePriority(issue);
+
   return (
     <div
       className={`relative rounded-xl border p-5 transition ${blurred ? "select-none" : ""} ${SEVERITY_COLOR[issue.severity]}`}
@@ -111,6 +127,17 @@ function IssueCard({ issue, blurred }: { issue: AuditIssue; blurred?: boolean })
         </span>
       </div>
       <h3 className="font-semibold text-neutral-100 mb-2">{issue.title}</h3>
+      <div className="flex items-center gap-2 mb-2">
+        <span
+          className={`text-[10px] font-medium uppercase tracking-wide px-2 py-0.5 rounded-full border ${PRIORITY_COLOR[priority]}`}
+        >
+          {priority}
+        </span>
+        <span className="text-[10px] text-neutral-500">
+          {issue.confidence === "high" ? "High" : "Medium"} confidence ·{" "}
+          {EFFORT_LABEL[issue.effort]}
+        </span>
+      </div>
       {!blurred && (
         <div className="flex flex-col gap-1.5 text-sm text-neutral-300">
           <p>{issue.observation}</p>

@@ -18,6 +18,8 @@ export function runPerformanceChecks(ps: PageSpeedResult): AuditIssue[] {
       estimatedImpact: "+7–12% mobile conversion",
       fix: "Compress images, remove unused JavaScript, and enable server-side caching.",
       revenueLossEstimate: 5000,
+      confidence: "high",
+      effort: "high",
     });
   } else if (ps.mobileScore < 70) {
     issues.push({
@@ -33,6 +35,8 @@ export function runPerformanceChecks(ps: PageSpeedResult): AuditIssue[] {
       estimatedImpact: "+3–5% mobile conversion",
       fix: "Optimize images, defer non-critical scripts, and use a CDN.",
       revenueLossEstimate: 2500,
+      confidence: "high",
+      effort: "medium",
     });
   }
 
@@ -50,6 +54,8 @@ export function runPerformanceChecks(ps: PageSpeedResult): AuditIssue[] {
       estimatedImpact: "+3–5% conversion",
       fix: "Optimize and preload your hero image. Use next-gen image formats (WebP/AVIF).",
       revenueLossEstimate: 3500,
+      confidence: "high",
+      effort: "medium",
     });
   }
 
@@ -67,6 +73,8 @@ export function runPerformanceChecks(ps: PageSpeedResult): AuditIssue[] {
       estimatedImpact: "+1–3% mobile conversion",
       fix: "Set explicit width/height on images and avoid dynamically injected content above the fold.",
       revenueLossEstimate: 1500,
+      confidence: "high",
+      effort: "low",
     });
   }
 
@@ -84,6 +92,8 @@ export function runPerformanceChecks(ps: PageSpeedResult): AuditIssue[] {
       estimatedImpact: "+2–4% conversion",
       fix: "Upgrade your hosting plan, enable server-side caching, or switch to a CDN-backed host.",
       revenueLossEstimate: 2000,
+      confidence: "high",
+      effort: "high",
     });
   }
 
@@ -101,6 +111,8 @@ export function runPerformanceChecks(ps: PageSpeedResult): AuditIssue[] {
       estimatedImpact: "+1–2% conversion",
       fix: "Audit device-specific assets and ensure responsive images are correctly sized.",
       revenueLossEstimate: 800,
+      confidence: "high",
+      effort: "medium",
     });
   }
 

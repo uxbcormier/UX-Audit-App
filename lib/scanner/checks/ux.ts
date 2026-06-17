@@ -35,6 +35,37 @@ export function runUxChecks(page: ScrapedPage): AuditIssue[] {
       estimatedImpact: "+5–9% conversion",
       fix: "Add a prominent CTA button ('Shop Now', 'Get Started') above the fold with high contrast.",
       revenueLossEstimate: 4000,
+      confidence: "medium",
+      effort: "low",
+    });
+  }
+
+  // Check for homepage decision paralysis: many distinct, competing CTA labels
+  // dilute the "one obvious next step" a homepage should offer.
+  const ctaLabels = new Set(
+    ctaButtons
+      .map((el) => $(el).text().trim().replace(/\s+/g, " ").toLowerCase())
+      .filter(Boolean)
+  );
+
+  if (ctaLabels.size > 6) {
+    const sampleLabels = [...ctaLabels].slice(0, 3).join('", "');
+    issues.push({
+      id: "ux-decision-paralysis",
+      category: "UX",
+      signal: "Time-to-Product",
+      severity: "warning",
+      title: "Too many competing calls-to-action",
+      observation: `${ctaLabels.size} distinct call-to-action labels (e.g. "${sampleLabels}") were found on the homepage.`,
+      behavioralExplanation:
+        "When a page offers many different 'next steps' at once, deciding which one to take takes longer, and a meaningful share of shoppers decide not to act at all.",
+      businessImplication:
+        "A homepage without one clear primary action spreads attention thin and measurably slows the path to purchase.",
+      estimatedImpact: "+1–3% conversion",
+      fix: "Pick one primary call-to-action per homepage section and demote the rest to secondary (text link) styling.",
+      revenueLossEstimate: 1000,
+      confidence: "medium",
+      effort: "medium",
     });
   }
 
@@ -57,6 +88,8 @@ export function runUxChecks(page: ScrapedPage): AuditIssue[] {
       estimatedImpact: "+3–5% checkout completion",
       fix: "Add a phone number or live chat widget to the header or footer.",
       revenueLossEstimate: 2500,
+      confidence: "medium",
+      effort: "low",
     });
   }
 
@@ -78,6 +111,8 @@ export function runUxChecks(page: ScrapedPage): AuditIssue[] {
       estimatedImpact: "+4–7% conversion",
       fix: "Add a prominent search bar to the header on all pages.",
       revenueLossEstimate: 2000,
+      confidence: "high",
+      effort: "medium",
     });
   }
 
@@ -97,6 +132,8 @@ export function runUxChecks(page: ScrapedPage): AuditIssue[] {
       estimatedImpact: "+1–3% conversion",
       fix: "Add clear category navigation with dropdowns for product collections.",
       revenueLossEstimate: 1200,
+      confidence: "high",
+      effort: "medium",
     });
   }
 
@@ -116,6 +153,8 @@ export function runUxChecks(page: ScrapedPage): AuditIssue[] {
       estimatedImpact: "+6–10% mobile conversion",
       fix: 'Add <meta name="viewport" content="width=device-width, initial-scale=1"> to your <head>.',
       revenueLossEstimate: 5000,
+      confidence: "high",
+      effort: "low",
     });
   }
 
@@ -135,6 +174,8 @@ export function runUxChecks(page: ScrapedPage): AuditIssue[] {
       estimatedImpact: "+0.5–1.5% conversion",
       fix: "Remove third-party ad placements from the homepage, or move them well below the primary shopping content.",
       revenueLossEstimate: 800,
+      confidence: "high",
+      effort: "low",
     });
   }
 
@@ -173,6 +214,8 @@ export function runUxChecks(page: ScrapedPage): AuditIssue[] {
         estimatedImpact: "+0.5–1% conversion",
         fix: "Wrap your site logo in a link pointing to your homepage ('/').",
         revenueLossEstimate: 500,
+        confidence: "medium",
+        effort: "low",
       });
     }
   }
@@ -207,6 +250,8 @@ export function runUxChecks(page: ScrapedPage): AuditIssue[] {
       estimatedImpact: "+1–2% conversion",
       fix: "Make every top-level navigation heading a real link to its category overview page, even when it also opens a dropdown.",
       revenueLossEstimate: 1200,
+      confidence: "medium",
+      effort: "low",
     });
   }
 

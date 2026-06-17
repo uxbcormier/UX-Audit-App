@@ -23,6 +23,8 @@ export function runTrustChecks(page: ScrapedPage): AuditIssue[] {
       estimatedImpact: "+3–6% checkout completion",
       fix: "Add payment method icons (Visa, Mastercard, PayPal) and a security badge near the CTA and checkout.",
       revenueLossEstimate: 3500,
+      confidence: "medium",
+      effort: "low",
     });
   }
 
@@ -45,6 +47,8 @@ export function runTrustChecks(page: ScrapedPage): AuditIssue[] {
       estimatedImpact: "+4–6% conversion",
       fix: "Add a reviews section or star ratings on your homepage and product pages.",
       revenueLossEstimate: 4500,
+      confidence: "medium",
+      effort: "medium",
     });
   }
 
@@ -66,6 +70,8 @@ export function runTrustChecks(page: ScrapedPage): AuditIssue[] {
       estimatedImpact: "+2–4% conversion",
       fix: "Add a return policy callout ('Free 30-day returns') near the CTA or in the header.",
       revenueLossEstimate: 2000,
+      confidence: "medium",
+      effort: "low",
     });
   }
 
@@ -87,6 +93,8 @@ export function runTrustChecks(page: ScrapedPage): AuditIssue[] {
       estimatedImpact: "+0.5–1.5% checkout completion",
       fix: "Add a privacy policy link to your footer and ensure it covers data collection.",
       revenueLossEstimate: 1000,
+      confidence: "high",
+      effort: "low",
     });
   }
 
@@ -108,6 +116,8 @@ export function runTrustChecks(page: ScrapedPage): AuditIssue[] {
       estimatedImpact: "+0.5–1% conversion",
       fix: "Add an 'About Us' page link in your navigation or footer.",
       revenueLossEstimate: 500,
+      confidence: "medium",
+      effort: "low",
     });
   }
 
