@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { stripe } from "@/lib/stripe";
 import { prisma } from "@/lib/prisma";
+import { sendReportReadyEmail } from "@/lib/email";
 
 export async function POST(req: NextRequest) {
   const body = await req.text();
@@ -23,6 +24,7 @@ export async function POST(req: NextRequest) {
   if (event.type === "checkout.session.completed") {
     const session = event.data.object;
     const scanId = session.metadata?.scanId;
+    const email = session.metadata?.email;
 
     if (scanId) {
       await prisma.payment.update({
@@ -32,6 +34,18 @@ export async function POST(req: NextRequest) {
           stripePaymentId: session.payment_intent as string,
         },
       });
+
+      if (email) {
+        const scan = await prisma.scan.findUnique({ where: { id: scanId } });
+        if (scan) {
+          const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:3000";
+          await sendReportReadyEmail({
+            to: email,
+            scanUrl: scan.url,
+            reportUrl: `${baseUrl}/scan/${scanId}`,
+          }).catch((err) => console.error("Failed to send report-ready email:", err));
+        }
+      }
     }
   }
 
