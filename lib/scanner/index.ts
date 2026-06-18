@@ -1,5 +1,6 @@
 import { runPageSpeed } from "./pagespeed";
 import { scrapePage } from "./scraper";
+import { detectIndustry } from "./industry";
 import { runSeoChecks } from "./checks/seo";
 import { runUxChecks } from "./checks/ux";
 import { runTrustChecks } from "./checks/trust";
@@ -116,6 +117,8 @@ export async function runFullScan(url: string): Promise<{ teaser: TeaserResults;
     scrapePage(url),
   ]);
 
+  const industry = detectIndustry(page);
+
   const seoIssues = runSeoChecks(page);
   const uxIssues = runUxChecks(page);
   const trustIssues = runTrustChecks(page);
@@ -144,8 +147,13 @@ export async function runFullScan(url: string): Promise<{ teaser: TeaserResults;
     overallScore,
     revenueLoss,
     grade,
+    industry,
+    // Placeholder until the caller merges in a real industry benchmark
+    // (see lib/scanner/benchmark.ts) — kept here so the shape is always valid.
     industryAvgScore: INDUSTRY_AVG_SCORE,
     topBrandScore: TOP_BRAND_SCORE,
+    benchmarkSampleSize: 0,
+    benchmarkIsFallback: true,
     revenueOpportunity,
     signalSummary,
     issues: allIssues.slice(0, 3),
@@ -158,8 +166,11 @@ export async function runFullScan(url: string): Promise<{ teaser: TeaserResults;
     overallScore,
     revenueLoss,
     grade,
+    industry,
     industryAvgScore: INDUSTRY_AVG_SCORE,
     topBrandScore: TOP_BRAND_SCORE,
+    benchmarkSampleSize: 0,
+    benchmarkIsFallback: true,
     revenueOpportunity,
     signalSummary,
     issues: allIssues,

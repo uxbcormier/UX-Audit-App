@@ -69,13 +69,19 @@ const EFFORT_LABEL: Record<string, string> = {
 
 function ScoreHero({
   score,
+  industry,
   industryAvgScore,
   topBrandScore,
+  benchmarkSampleSize,
+  benchmarkIsFallback,
   totalIssueCount,
 }: {
   score: number;
+  industry: string;
   industryAvgScore: number;
   topBrandScore: number;
+  benchmarkSampleSize: number;
+  benchmarkIsFallback: boolean;
   totalIssueCount: number;
 }) {
   const color =
@@ -93,8 +99,18 @@ function ScoreHero({
         This score reflects lost conversion opportunities across your experience.
       </p>
       <p className="text-xs text-neutral-500 mt-3">
-        Average ecommerce score: <span className="text-neutral-300">{industryAvgScore}</span>{" "}
-        · Top brands: <span className="text-neutral-300">{topBrandScore}+</span>
+        {benchmarkIsFallback ? (
+          <>
+            Average ecommerce score: <span className="text-neutral-300">{industryAvgScore}</span>{" "}
+            · Top brands: <span className="text-neutral-300">{topBrandScore}+</span>
+          </>
+        ) : (
+          <>
+            {industry} average: <span className="text-neutral-300">{industryAvgScore}</span> (from{" "}
+            {benchmarkSampleSize} real {industry} scans) · Top quartile:{" "}
+            <span className="text-neutral-300">{topBrandScore}+</span>
+          </>
+        )}
       </p>
       <span className="inline-flex items-center gap-1.5 mt-5 text-xs font-medium text-teal-400 bg-teal-950/40 border border-teal-900/50 rounded-full px-3 py-1">
         {totalIssueCount} insight{totalIssueCount !== 1 ? "s" : ""} detected
@@ -312,8 +328,11 @@ export default function ScanPage() {
             <section className="mb-16">
               <ScoreHero
                 score={results.overallScore}
+                industry={results.industry}
                 industryAvgScore={results.industryAvgScore}
                 topBrandScore={results.topBrandScore}
+                benchmarkSampleSize={results.benchmarkSampleSize}
+                benchmarkIsFallback={results.benchmarkIsFallback}
                 totalIssueCount={results.totalIssueCount}
               />
             </section>

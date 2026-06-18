@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  serverExternalPackages: ["cheerio"],
+  serverExternalPackages: ["cheerio", "playwright-core", "playwright", "@sparticuz/chromium"],
   experimental: {
     // Allow longer scan timeouts on API routes
     // Disabled: persistent Turbopack cache writes inside `.next` can trigger

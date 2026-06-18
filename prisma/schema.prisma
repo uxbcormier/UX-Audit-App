@@ -60,6 +60,7 @@ model Scan {
   overallScore  Int?
   revenueLoss   Int?
   failureReason String?
+  industry      String?
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
   userId        String?
@@ -67,6 +68,7 @@ model Scan {
   payment       Payment?
 
   @@index([userId])
+  @@index([industry])
 }
 
 model Payment {

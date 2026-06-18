@@ -52,8 +52,13 @@ export interface TeaserResults {
   overallScore: number;
   revenueLoss: number;
   grade: string;
+  industry: string;
   industryAvgScore: number;
   topBrandScore: number;
+  // Whether industryAvgScore/topBrandScore come from real scans of this
+  // industry (vs. a generic published baseline used until we have enough).
+  benchmarkSampleSize: number;
+  benchmarkIsFallback: boolean;
   revenueOpportunity: RevenueOpportunity;
   signalSummary: SignalSummary[];
   issues: AuditIssue[]; // only top 3 shown (2 full + 1 locked on the client)
