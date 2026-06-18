@@ -16,9 +16,12 @@ export function runUxChecks(page: ScrapedPage): AuditIssue[] {
   const issues: AuditIssue[] = [];
   const { $ } = page;
 
-  // Check for CTA buttons
+  // Check for CTA buttons. We match on link/button text rather than class
+  // names — sites use wildly different naming conventions for CTA styling
+  // (e.g. Squarespace's "cta" vs. Bootstrap's "btn"), so the keyword match
+  // on visible text is the reliable signal, not the class attribute.
   const ctaKeywords = /buy|shop|add to cart|checkout|get started|order|purchase/i;
-  const buttons = $("button, a.btn, a.button, [class*=btn], [class*=button]").get();
+  const buttons = $("a, button").get();
   const ctaButtons = buttons.filter((el) => ctaKeywords.test($(el).text()));
 
   if (ctaButtons.length === 0) {
@@ -196,7 +199,10 @@ export function runUxChecks(page: ScrapedPage): AuditIssue[] {
 
   if (logoCandidates.length > 0) {
     const $logo = $(logoCandidates[0]);
-    const $link = $logo.closest("a");
+    // The logo-linking <a> can be an ancestor (logo wrapped in a link) or a
+    // descendant (e.g. a "logo-wrapper" div that itself contains the link) —
+    // closest() alone only finds the ancestor case, so check both directions.
+    const $link = $logo.closest("a").length > 0 ? $logo.closest("a") : $logo.find("a").first();
     const logoLinksHome = $link.length > 0 && isHomeHref($link.attr("href"));
 
     if (!logoLinksHome) {
