@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { runFullScan } from "@/lib/scanner";
+import { ScrapeError } from "@/lib/scanner/scraper";
 
 const schema = z.object({
   url: z.string().url("Please enter a valid URL including http:// or https://"),
@@ -37,9 +38,10 @@ export async function POST(req: NextRequest) {
     })
     .catch(async (err) => {
       console.error("Scan failed:", err);
+      const failureReason = err instanceof ScrapeError ? err.reason : "unreachable";
       await prisma.scan.update({
         where: { id: scan.id },
-        data: { status: "FAILED" },
+        data: { status: "FAILED", failureReason },
       });
     });
 

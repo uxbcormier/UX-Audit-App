@@ -27,6 +27,7 @@ export async function GET(
     teaserResults: scan.teaserResults,
     fullResults: isPaid ? scan.fullResults : null,
     isPaid,
+    failureReason: scan.failureReason,
     createdAt: scan.createdAt,
   });
 }

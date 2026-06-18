@@ -19,6 +19,22 @@ export interface ScrapedPage {
 const BOT_BLOCK_SIGNS =
   /access denied|attention required|are you a (human|robot)|pardon our interruption|captcha|just a moment|checking your browser|request unsuccessful|blocked by network security/i;
 
+// Status codes commonly returned by anti-bot services (Cloudflare, Akamai, etc.)
+// when they've identified and rejected automated traffic.
+const BOT_BLOCK_STATUSES = new Set([403, 429, 503]);
+
+export type ScrapeFailureReason = "blocked" | "unreachable" | "empty";
+
+export class ScrapeError extends Error {
+  reason: ScrapeFailureReason;
+
+  constructor(message: string, reason: ScrapeFailureReason) {
+    super(message);
+    this.name = "ScrapeError";
+    this.reason = reason;
+  }
+}
+
 export async function scrapePage(url: string): Promise<ScrapedPage> {
   const normalizedUrl = url.startsWith("http") ? url : `https://${url}`;
   const start = Date.now();
@@ -38,16 +54,26 @@ export async function scrapePage(url: string): Promise<ScrapedPage> {
   const $ = cheerio.load(html);
 
   const bodyText = $("body").text().replace(/\s+/g, " ").trim();
-  const looksBlocked =
-    response.status >= 400 ||
-    bodyText.length < 100 ||
-    BOT_BLOCK_SIGNS.test(bodyText.slice(0, 2000));
+  const matchesBotBlockText = BOT_BLOCK_SIGNS.test(bodyText.slice(0, 2000));
 
-  if (looksBlocked) {
-    throw new Error(
-      response.status >= 400
-        ? `Received HTTP ${response.status} while fetching ${normalizedUrl} — the site may be blocking automated requests.`
-        : `The page came back with almost no visible content, which usually means the site blocked the scan or renders entirely via JavaScript we can't execute.`
+  if (matchesBotBlockText || BOT_BLOCK_STATUSES.has(response.status)) {
+    throw new ScrapeError(
+      `${normalizedUrl} appears to be blocking automated requests (HTTP ${response.status}).`,
+      "blocked"
+    );
+  }
+
+  if (response.status >= 400) {
+    throw new ScrapeError(
+      `Received HTTP ${response.status} while fetching ${normalizedUrl}.`,
+      "unreachable"
+    );
+  }
+
+  if (bodyText.length < 100) {
+    throw new ScrapeError(
+      "The page came back with almost no visible content, which usually means it renders entirely via JavaScript we can't execute.",
+      "empty"
     );
   }
 

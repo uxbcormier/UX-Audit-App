@@ -59,6 +59,7 @@ model Scan {
   fullResults   Json?
   overallScore  Int?
   revenueLoss   Int?
+  failureReason String?
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
   userId        String?

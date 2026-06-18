@@ -28,6 +28,7 @@ interface ScanData {
   teaserResults: TeaserResults | null;
   fullResults: FullResults | null;
   isPaid: boolean;
+  failureReason: "blocked" | "unreachable" | "empty" | null;
 }
 
 const CATEGORY_ICON: Record<string, React.ReactNode> = {
@@ -247,16 +248,41 @@ export default function ScanPage() {
 
         {/* Failed state */}
         {isFailed && (
-          <div className="text-center py-24">
+          <div className="text-center py-24 max-w-lg mx-auto">
             <AlertTriangle size={48} className="text-red-400 mx-auto mb-4" />
             <h2 className="text-2xl font-bold text-neutral-100 mb-2">
               Scan failed
             </h2>
-            <p className="text-neutral-500 mb-6">
-              We couldn&apos;t get a reliable read of {scan.url}. The site may be
-              blocking automated tools, or the URL might not be reachable —
-              double-check it and try again.
-            </p>
+            {scan.failureReason === "blocked" ? (
+              <>
+                <p className="text-neutral-500 mb-4">
+                  {scan.url} appears to have bot protection enabled (services
+                  like Cloudflare or Akamai), which is blocking our scanner.
+                </p>
+                <div className="text-left bg-neutral-900 border border-neutral-800 rounded-xl p-4 mb-6 text-sm text-neutral-400">
+                  <p className="mb-2">
+                    If this is your site, ask whoever manages your hosting or
+                    security settings to allowlist our scanner by its
+                    user-agent:
+                  </p>
+                  <code className="block bg-neutral-950 border border-neutral-800 rounded-lg px-3 py-2 text-teal-400 text-xs break-all">
+                    UXAuditBot/1.0
+                  </code>
+                </div>
+              </>
+            ) : scan.failureReason === "empty" ? (
+              <p className="text-neutral-500 mb-6">
+                {scan.url} came back with almost no visible content, which
+                usually means the page renders entirely via JavaScript that
+                our scanner can&apos;t execute.
+              </p>
+            ) : (
+              <p className="text-neutral-500 mb-6">
+                We couldn&apos;t get a reliable read of {scan.url}. The site may be
+                blocking automated tools, or the URL might not be reachable —
+                double-check it and try again.
+              </p>
+            )}
             <Link
               href="/"
               className="inline-flex items-center gap-2 px-5 py-2.5 bg-teal-500 text-neutral-950 rounded-xl font-medium hover:bg-teal-400 transition"
