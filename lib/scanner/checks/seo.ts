@@ -23,20 +23,23 @@ export function runSeoChecks(page: ScrapedPage): AuditIssue[] {
       confidence: "high",
       effort: "low",
     });
-  } else if (page.title.length > 60) {
+  } else if (page.title.length > 70) {
+    // Google's truncation point varies with character width, not a fixed
+    // count, so a couple of characters past 60 rarely actually clips — only
+    // flag titles long enough that truncation is reasonably likely.
     issues.push({
       id: "seo-title-too-long",
       category: "SEO",
       signal: "Search Visibility",
-      severity: "warning",
-      title: "Page title too long",
-      observation: `The page title is ${page.title.length} characters; Google truncates titles past 60.`,
+      severity: "low",
+      title: "Page title may be getting truncated in search results",
+      observation: `The page title is ${page.title.length} characters, well past the point where Google typically truncates.`,
       behavioralExplanation:
         "Shoppers scanning search results see a cut-off headline and skip past it for a competitor's cleaner listing.",
       businessImplication: "Truncated titles measurably reduce click-through rates from search.",
-      estimatedImpact: "+1–2% organic click-through rate",
+      estimatedImpact: "+0.5–1% organic click-through rate",
       fix: "Shorten your page title to under 60 characters while keeping your main keyword.",
-      revenueLossEstimate: estimateAnnualRevenueLoss(1, 2),
+      revenueLossEstimate: estimateAnnualRevenueLoss(0.5, 1),
       confidence: "high",
       effort: "low",
     });

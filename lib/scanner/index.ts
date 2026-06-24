@@ -1,10 +1,13 @@
+import type { BrowserContext } from "playwright-core";
 import { runPageSpeed } from "./pagespeed";
-import { scrapePage } from "./scraper";
+import { launchScanSession, scrapeWithContext, type ScrapedPage } from "./scraper";
 import { detectIndustry } from "./industry";
+import { findProductLink, findShopLink } from "./productDiscovery";
 import { runSeoChecks } from "./checks/seo";
 import { runUxChecks } from "./checks/ux";
 import { runTrustChecks } from "./checks/trust";
 import { runPerformanceChecks } from "./checks/performance";
+import { looksLikeSingleProductPage, runProductChecks } from "./checks/product";
 import { ASSUMED_MONTHLY_REVENUE } from "./revenue";
 import type {
   AuditIssue,
@@ -112,82 +115,134 @@ function calcSignalSummary(issues: AuditIssue[]): SignalSummary[] {
     .sort((a, b) => b.issueCount - a.issueCount);
 }
 
+// Tries a direct product link from the homepage first, then falls back to one
+// shop/collection-page hop to find one. Light scrape options (no network-idle
+// wait, no screenshot) keep a slow or unreachable secondary page from eating
+// the route's time budget. Any failure here is swallowed — a missing or
+// broken product page should never fail the whole scan.
+async function scanProductPage(
+  context: BrowserContext,
+  homepage: ScrapedPage,
+  baseUrl: string
+): Promise<{ issues: AuditIssue[]; productPageUrl: string | null }> {
+  const lightOptions = { waitForNetworkIdle: false, captureScreenshot: false, navTimeoutMs: 8000 };
+
+  try {
+    let productUrl = findProductLink(homepage, baseUrl);
+
+    if (!productUrl) {
+      const shopUrl = findShopLink(homepage, baseUrl);
+      if (shopUrl) {
+        const shopPage = await scrapeWithContext(context, shopUrl, lightOptions);
+        productUrl = findProductLink(shopPage, shopUrl);
+      }
+    }
+
+    if (!productUrl) {
+      return { issues: [], productPageUrl: null };
+    }
+
+    const productPage = await scrapeWithContext(context, productUrl, lightOptions);
+
+    if (!looksLikeSingleProductPage(productPage)) {
+      return { issues: [], productPageUrl: null };
+    }
+
+    return { issues: runProductChecks(productPage, productUrl), productPageUrl: productUrl };
+  } catch {
+    return { issues: [], productPageUrl: null };
+  }
+}
+
 export async function runFullScan(url: string): Promise<{ teaser: TeaserResults; full: FullResults }> {
-  const [psResult, page] = await Promise.all([
-    runPageSpeed(url).catch(() => null),
-    scrapePage(url),
-  ]);
+  const { browser, context } = await launchScanSession();
 
-  const industry = detectIndustry(page);
+  try {
+    const [psResult, page] = await Promise.all([
+      runPageSpeed(url).catch(() => null),
+      scrapeWithContext(context, url),
+    ]);
 
-  const seoIssues = runSeoChecks(page);
-  const uxIssues = runUxChecks(page);
-  const trustIssues = runTrustChecks(page);
-  const perfIssues = psResult ? runPerformanceChecks(psResult) : [];
+    const { issues: productIssues, productPageUrl } = await scanProductPage(context, page, url);
 
-  const allIssues: AuditIssue[] = [
-    ...seoIssues,
-    ...uxIssues,
-    ...trustIssues,
-    ...perfIssues,
-  ].sort((a, b) => SEVERITY_WEIGHT[b.severity] - SEVERITY_WEIGHT[a.severity]);
+    const industry = detectIndustry(page);
 
-  const overallScore = calcScore(allIssues);
-  const revenueLoss = calcRevenueLoss(allIssues);
-  const grade = scoreToGrade(overallScore);
-  const summary = categorySummary(allIssues);
-  const revenueOpportunity = calcRevenueOpportunity(allIssues, overallScore, revenueLoss);
-  const signalSummary = calcSignalSummary(allIssues);
+    const seoIssues = runSeoChecks(page);
+    const uxIssues = runUxChecks(page);
+    const trustIssues = runTrustChecks(page);
+    const perfIssues = psResult ? runPerformanceChecks(psResult) : [];
 
-  const pageSpeed = {
-    mobileScore: psResult?.mobileScore ?? 0,
-    desktopScore: psResult?.desktopScore ?? 0,
-  };
+    const allIssues: AuditIssue[] = [
+      ...seoIssues,
+      ...uxIssues,
+      ...trustIssues,
+      ...perfIssues,
+      ...productIssues,
+    ].sort((a, b) => SEVERITY_WEIGHT[b.severity] - SEVERITY_WEIGHT[a.severity]);
 
-  const teaser: TeaserResults = {
-    overallScore,
-    revenueLoss,
-    grade,
-    industry,
-    // Placeholder until the caller merges in a real industry benchmark
-    // (see lib/scanner/benchmark.ts) — kept here so the shape is always valid.
-    industryAvgScore: INDUSTRY_AVG_SCORE,
-    topBrandScore: TOP_BRAND_SCORE,
-    benchmarkSampleSize: 0,
-    benchmarkIsFallback: true,
-    revenueOpportunity,
-    assumedMonthlyRevenue: ASSUMED_MONTHLY_REVENUE,
-    signalSummary,
-    issues: allIssues.slice(0, 3),
-    totalIssueCount: allIssues.length,
-    categorySummary: summary,
-    pageSpeed,
-    screenshotUrl: page.screenshotDataUrl,
-  };
+    const overallScore = calcScore(allIssues);
+    const revenueLoss = calcRevenueLoss(allIssues);
+    const grade = scoreToGrade(overallScore);
+    const summary = categorySummary(allIssues);
+    const revenueOpportunity = calcRevenueOpportunity(allIssues, overallScore, revenueLoss);
+    const signalSummary = calcSignalSummary(allIssues);
 
-  const full: FullResults = {
-    overallScore,
-    revenueLoss,
-    grade,
-    industry,
-    industryAvgScore: INDUSTRY_AVG_SCORE,
-    topBrandScore: TOP_BRAND_SCORE,
-    benchmarkSampleSize: 0,
-    benchmarkIsFallback: true,
-    revenueOpportunity,
-    assumedMonthlyRevenue: ASSUMED_MONTHLY_REVENUE,
-    signalSummary,
-    issues: allIssues,
-    totalIssueCount: allIssues.length,
-    categorySummary: summary,
-    pageSpeed,
-    screenshotUrl: page.screenshotDataUrl,
-    recommendations: generateRecommendations(allIssues),
-    pageUrl: url,
-    scannedAt: new Date().toISOString(),
-  };
+    const pageSpeed = {
+      mobileScore: psResult?.mobileScore ?? 0,
+      desktopScore: psResult?.desktopScore ?? 0,
+    };
 
-  return { teaser, full };
+    const teaser: TeaserResults = {
+      overallScore,
+      revenueLoss,
+      grade,
+      industry,
+      // Placeholder until the caller merges in a real industry benchmark
+      // (see lib/scanner/benchmark.ts) — kept here so the shape is always valid.
+      industryAvgScore: INDUSTRY_AVG_SCORE,
+      topBrandScore: TOP_BRAND_SCORE,
+      benchmarkSampleSize: 0,
+      benchmarkIsFallback: true,
+      revenueOpportunity,
+      assumedMonthlyRevenue: ASSUMED_MONTHLY_REVENUE,
+      signalSummary,
+      issues: allIssues.slice(0, 3),
+      totalIssueCount: allIssues.length,
+      categorySummary: summary,
+      pageSpeed,
+      screenshotUrl: page.screenshotDataUrl,
+      productPageScanned: Boolean(productPageUrl),
+      productPageUrl,
+    };
+
+    const full: FullResults = {
+      overallScore,
+      revenueLoss,
+      grade,
+      industry,
+      industryAvgScore: INDUSTRY_AVG_SCORE,
+      topBrandScore: TOP_BRAND_SCORE,
+      benchmarkSampleSize: 0,
+      benchmarkIsFallback: true,
+      revenueOpportunity,
+      assumedMonthlyRevenue: ASSUMED_MONTHLY_REVENUE,
+      signalSummary,
+      issues: allIssues,
+      totalIssueCount: allIssues.length,
+      categorySummary: summary,
+      pageSpeed,
+      screenshotUrl: page.screenshotDataUrl,
+      productPageScanned: Boolean(productPageUrl),
+      productPageUrl,
+      recommendations: generateRecommendations(allIssues),
+      pageUrl: url,
+      scannedAt: new Date().toISOString(),
+    };
+
+    return { teaser, full };
+  } finally {
+    await browser.close();
+  }
 }
 
 function generateRecommendations(issues: AuditIssue[]): string[] {

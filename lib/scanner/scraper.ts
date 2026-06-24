@@ -1,5 +1,5 @@
 import * as cheerio from "cheerio";
-import type { Browser } from "playwright-core";
+import type { Browser, BrowserContext } from "playwright-core";
 
 export interface ScrapedPage {
   html: string;
@@ -14,7 +14,7 @@ export interface ScrapedPage {
   statusCode: number;
   responseTimeMs: number;
   // Above-the-fold screenshot as a data URL, for display in the report.
-  // Null if the capture failed — never worth failing the whole scan over.
+  // Null if the capture failed or wasn't requested for this page.
   screenshotDataUrl: string | null;
 }
 
@@ -58,24 +58,43 @@ async function launchBrowser(): Promise<Browser> {
   return localChromium.launch({ headless: true });
 }
 
-export async function scrapePage(url: string): Promise<ScrapedPage> {
+// A scan visits more than one page (homepage, and often a product page), but
+// they should all share a single browser launch rather than paying that cost
+// per page. Callers must close `browser` when done with the whole scan.
+export async function launchScanSession(): Promise<{ browser: Browser; context: BrowserContext }> {
+  const browser = await launchBrowser();
+  const context = await browser.newContext({
+    userAgent: USER_AGENT,
+    viewport: { width: 1280, height: 900 },
+  });
+  return { browser, context };
+}
+
+interface ScrapeOptions {
+  // The homepage gets a generous load wait and a screenshot; secondary pages
+  // (e.g. a discovered product page) use a lighter touch so one slow or
+  // unreachable extra page can't eat the route's time budget.
+  waitForNetworkIdle?: boolean;
+  captureScreenshot?: boolean;
+  navTimeoutMs?: number;
+}
+
+export async function scrapeWithContext(
+  context: BrowserContext,
+  url: string,
+  options: ScrapeOptions = {}
+): Promise<ScrapedPage> {
+  const { waitForNetworkIdle = true, captureScreenshot = true, navTimeoutMs = 20000 } = options;
   const normalizedUrl = url.startsWith("http") ? url : `https://${url}`;
   const start = Date.now();
 
-  const browser = await launchBrowser();
-
+  const page = await context.newPage();
   try {
-    const context = await browser.newContext({
-      userAgent: USER_AGENT,
-      viewport: { width: 1280, height: 900 },
-    });
-    const page = await context.newPage();
-
     let response;
     try {
       response = await page.goto(normalizedUrl, {
         waitUntil: "domcontentloaded",
-        timeout: 20000,
+        timeout: navTimeoutMs,
       });
     } catch {
       throw new ScrapeError(`Could not reach ${normalizedUrl}.`, "unreachable");
@@ -84,7 +103,9 @@ export async function scrapePage(url: string): Promise<ScrapedPage> {
     // Give late-loading content (lazy images, hydration, deferred scripts) a
     // brief window without waiting indefinitely on sites that never go fully
     // idle (chat widgets, analytics beacons, etc).
-    await page.waitForLoadState("networkidle", { timeout: 5000 }).catch(() => {});
+    if (waitForNetworkIdle) {
+      await page.waitForLoadState("networkidle", { timeout: 5000 }).catch(() => {});
+    }
 
     const responseTimeMs = Date.now() - start;
     const status = response?.status() ?? 0;
@@ -115,10 +136,12 @@ export async function scrapePage(url: string): Promise<ScrapedPage> {
     // Above-the-fold only (not full-page) — keeps the capture fast and the
     // resulting data URL small enough to store inline with the rest of the
     // scan results. A failed screenshot shouldn't fail the whole scan.
-    const screenshotDataUrl = await page
-      .screenshot({ type: "jpeg", quality: 60 })
-      .then((buffer) => `data:image/jpeg;base64,${buffer.toString("base64")}`)
-      .catch(() => null);
+    const screenshotDataUrl = captureScreenshot
+      ? await page
+          .screenshot({ type: "jpeg", quality: 60 })
+          .then((buffer) => `data:image/jpeg;base64,${buffer.toString("base64")}`)
+          .catch(() => null)
+      : null;
 
     const images = $("img")
       .map((_, el) => ({
@@ -149,6 +172,17 @@ export async function scrapePage(url: string): Promise<ScrapedPage> {
       responseTimeMs,
       screenshotDataUrl,
     };
+  } finally {
+    await page.close();
+  }
+}
+
+// Convenience wrapper for callers that only need a single page and don't
+// want to manage the browser session themselves.
+export async function scrapePage(url: string): Promise<ScrapedPage> {
+  const { browser, context } = await launchScanSession();
+  try {
+    return await scrapeWithContext(context, url);
   } finally {
     await browser.close();
   }

@@ -336,8 +336,8 @@ export default function ScanPage() {
         {scan.status === "COMPLETE" && results && (
           <>
             {/* Screenshot */}
-            {results.screenshotUrl && (
-              <section className="mb-12">
+            <section className="mb-12">
+              {results.screenshotUrl && (
                 <div className="rounded-xl border border-neutral-800 overflow-hidden bg-neutral-900">
                   <div className="flex items-center gap-2 px-3 py-2 bg-neutral-950 border-b border-neutral-800">
                     <span className="w-2.5 h-2.5 rounded-full bg-red-500/70" />
@@ -352,8 +352,11 @@ export default function ScanPage() {
                     className="w-full block"
                   />
                 </div>
-              </section>
-            )}
+              )}
+              <p className="text-xs text-neutral-500 mt-2">
+                Scanned: homepage{results.productPageScanned ? " + product page" : ""}
+              </p>
+            </section>
 
             {/* 1. Score */}
             <section className="mb-16">

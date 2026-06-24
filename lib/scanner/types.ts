@@ -76,6 +76,11 @@ export interface TeaserResults {
   // Above-the-fold screenshot taken during the scan, shown free in the
   // teaser for credibility. Null if the capture failed.
   screenshotUrl: string | null;
+  // Whether a product page was found and successfully scanned alongside the
+  // homepage. Surfaced so the report never implies more page coverage than
+  // what was actually checked (e.g. checkout-stage claims from a homepage-only scan).
+  productPageScanned: boolean;
+  productPageUrl: string | null;
 }
 
 export interface FullResults extends TeaserResults {
