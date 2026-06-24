@@ -1,5 +1,6 @@
 import type { ScrapedPage } from "../scraper";
 import type { AuditIssue } from "../types";
+import { estimateAnnualRevenueLoss } from "../revenue";
 
 const AD_NETWORK_SIGNS =
   /doubleclick\.net|googlesyndication\.com|adsbygoogle|taboola\.com|outbrain\.com|criteo\.(com|net)|media\.net\/|amazon-adsystem\.com/i;
@@ -37,7 +38,7 @@ export function runUxChecks(page: ScrapedPage): AuditIssue[] {
       businessImplication: "Visitors who don't see an obvious next step leave without ever entering the funnel.",
       estimatedImpact: "+5–9% conversion",
       fix: "Add a prominent CTA button ('Shop Now', 'Get Started') above the fold with high contrast.",
-      revenueLossEstimate: 4000,
+      revenueLossEstimate: estimateAnnualRevenueLoss(5, 9),
       confidence: "medium",
       effort: "low",
     });
@@ -66,7 +67,7 @@ export function runUxChecks(page: ScrapedPage): AuditIssue[] {
         "A homepage without one clear primary action spreads attention thin and measurably slows the path to purchase.",
       estimatedImpact: "+1–3% conversion",
       fix: "Pick one primary call-to-action per homepage section and demote the rest to secondary (text link) styling.",
-      revenueLossEstimate: 1000,
+      revenueLossEstimate: estimateAnnualRevenueLoss(1, 3),
       confidence: "medium",
       effort: "medium",
     });
@@ -90,7 +91,7 @@ export function runUxChecks(page: ScrapedPage): AuditIssue[] {
       businessImplication: "A meaningful share of shoppers abandon when they can't find a support contact.",
       estimatedImpact: "+3–5% checkout completion",
       fix: "Add a phone number or live chat widget to the header or footer.",
-      revenueLossEstimate: 2500,
+      revenueLossEstimate: estimateAnnualRevenueLoss(3, 5),
       confidence: "medium",
       effort: "low",
     });
@@ -113,7 +114,7 @@ export function runUxChecks(page: ScrapedPage): AuditIssue[] {
       businessImplication: "Search-intent shoppers convert at 2–3x the rate of browsers, and that lift is being left on the table.",
       estimatedImpact: "+4–7% conversion",
       fix: "Add a prominent search bar to the header on all pages.",
-      revenueLossEstimate: 2000,
+      revenueLossEstimate: estimateAnnualRevenueLoss(4, 7),
       confidence: "high",
       effort: "medium",
     });
@@ -134,7 +135,7 @@ export function runUxChecks(page: ScrapedPage): AuditIssue[] {
       businessImplication: "Thin navigation reduces pages per session and the odds any given visit ends in a purchase.",
       estimatedImpact: "+1–3% conversion",
       fix: "Add clear category navigation with dropdowns for product collections.",
-      revenueLossEstimate: 1200,
+      revenueLossEstimate: estimateAnnualRevenueLoss(1, 3),
       confidence: "high",
       effort: "medium",
     });
@@ -155,7 +156,7 @@ export function runUxChecks(page: ScrapedPage): AuditIssue[] {
       businessImplication: "Over 60% of ecommerce traffic is mobile — a broken mobile render kills conversion for the majority of visitors.",
       estimatedImpact: "+6–10% mobile conversion",
       fix: 'Add <meta name="viewport" content="width=device-width, initial-scale=1"> to your <head>.',
-      revenueLossEstimate: 5000,
+      revenueLossEstimate: estimateAnnualRevenueLoss(6, 10),
       confidence: "high",
       effort: "low",
     });
@@ -176,7 +177,7 @@ export function runUxChecks(page: ScrapedPage): AuditIssue[] {
         "On-site ads are generally perceived negatively and can distract from or interrupt the shopping flow, particularly on mobile.",
       estimatedImpact: "+0.5–1.5% conversion",
       fix: "Remove third-party ad placements from the homepage, or move them well below the primary shopping content.",
-      revenueLossEstimate: 800,
+      revenueLossEstimate: estimateAnnualRevenueLoss(0.5, 1.5),
       confidence: "high",
       effort: "low",
     });
@@ -219,7 +220,7 @@ export function runUxChecks(page: ScrapedPage): AuditIssue[] {
           "Without a homepage-linked logo, shoppers find it more troublesome to restart product finding after hitting a dead end.",
         estimatedImpact: "+0.5–1% conversion",
         fix: "Wrap your site logo in a link pointing to your homepage ('/').",
-        revenueLossEstimate: 500,
+        revenueLossEstimate: estimateAnnualRevenueLoss(0.5, 1),
         confidence: "medium",
         effort: "low",
       });
@@ -255,7 +256,7 @@ export function runUxChecks(page: ScrapedPage): AuditIssue[] {
         "This forces shoppers into narrower scopes than expected and makes explorative browsing more difficult.",
       estimatedImpact: "+1–2% conversion",
       fix: "Make every top-level navigation heading a real link to its category overview page, even when it also opens a dropdown.",
-      revenueLossEstimate: 1200,
+      revenueLossEstimate: estimateAnnualRevenueLoss(1, 2),
       confidence: "medium",
       effort: "low",
     });

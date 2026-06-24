@@ -1,5 +1,6 @@
 import type { PageSpeedResult } from "../pagespeed";
 import type { AuditIssue } from "../types";
+import { estimateAnnualRevenueLoss } from "../revenue";
 
 export function runPerformanceChecks(ps: PageSpeedResult): AuditIssue[] {
   const issues: AuditIssue[] = [];
@@ -17,7 +18,7 @@ export function runPerformanceChecks(ps: PageSpeedResult): AuditIssue[] {
       businessImplication: "Over half of mobile users abandon sites that take more than 3 seconds to load.",
       estimatedImpact: "+7–12% mobile conversion",
       fix: "Compress images, remove unused JavaScript, and enable server-side caching.",
-      revenueLossEstimate: 5000,
+      revenueLossEstimate: estimateAnnualRevenueLoss(7, 12),
       confidence: "high",
       effort: "high",
     });
@@ -34,7 +35,7 @@ export function runPerformanceChecks(ps: PageSpeedResult): AuditIssue[] {
       businessImplication: "Every 1-second delay in page load reduces conversions by up to 7%.",
       estimatedImpact: "+3–5% mobile conversion",
       fix: "Optimize images, defer non-critical scripts, and use a CDN.",
-      revenueLossEstimate: 2500,
+      revenueLossEstimate: estimateAnnualRevenueLoss(3, 5),
       confidence: "high",
       effort: "medium",
     });
@@ -53,7 +54,7 @@ export function runPerformanceChecks(ps: PageSpeedResult): AuditIssue[] {
       businessImplication: "Slow LCP is a Core Web Vital that directly suppresses Google rankings as well as conversion.",
       estimatedImpact: "+3–5% conversion",
       fix: "Optimize and preload your hero image. Use next-gen image formats (WebP/AVIF).",
-      revenueLossEstimate: 3500,
+      revenueLossEstimate: estimateAnnualRevenueLoss(3, 5),
       confidence: "high",
       effort: "medium",
     });
@@ -72,7 +73,7 @@ export function runPerformanceChecks(ps: PageSpeedResult): AuditIssue[] {
       businessImplication: "Layout instability causes accidental taps and erodes confidence in the rest of the checkout flow.",
       estimatedImpact: "+1–3% mobile conversion",
       fix: "Set explicit width/height on images and avoid dynamically injected content above the fold.",
-      revenueLossEstimate: 1500,
+      revenueLossEstimate: estimateAnnualRevenueLoss(1, 3),
       confidence: "high",
       effort: "low",
     });
@@ -91,7 +92,7 @@ export function runPerformanceChecks(ps: PageSpeedResult): AuditIssue[] {
       businessImplication: "Slow server response time drags down every other speed metric shoppers experience.",
       estimatedImpact: "+2–4% conversion",
       fix: "Upgrade your hosting plan, enable server-side caching, or switch to a CDN-backed host.",
-      revenueLossEstimate: 2000,
+      revenueLossEstimate: estimateAnnualRevenueLoss(2, 4),
       confidence: "high",
       effort: "high",
     });
@@ -110,7 +111,7 @@ export function runPerformanceChecks(ps: PageSpeedResult): AuditIssue[] {
       businessImplication: "Device-inconsistent experiences quietly suppress conversion on whichever platform is weaker.",
       estimatedImpact: "+1–2% conversion",
       fix: "Audit device-specific assets and ensure responsive images are correctly sized.",
-      revenueLossEstimate: 800,
+      revenueLossEstimate: estimateAnnualRevenueLoss(1, 2),
       confidence: "high",
       effort: "medium",
     });

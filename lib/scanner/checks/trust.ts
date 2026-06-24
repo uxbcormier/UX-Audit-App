@@ -1,5 +1,6 @@
 import type { ScrapedPage } from "../scraper";
 import type { AuditIssue } from "../types";
+import { estimateAnnualRevenueLoss } from "../revenue";
 
 export function runTrustChecks(page: ScrapedPage): AuditIssue[] {
   const issues: AuditIssue[] = [];
@@ -22,7 +23,7 @@ export function runTrustChecks(page: ScrapedPage): AuditIssue[] {
       businessImplication: "Roughly 1 in 6 shoppers abandon checkout specifically because they don't trust the site with their card.",
       estimatedImpact: "+3–6% checkout completion",
       fix: "Add payment method icons (Visa, Mastercard, PayPal) and a security badge near the CTA and checkout.",
-      revenueLossEstimate: 3500,
+      revenueLossEstimate: estimateAnnualRevenueLoss(3, 6),
       confidence: "medium",
       effort: "low",
     });
@@ -46,7 +47,7 @@ export function runTrustChecks(page: ScrapedPage): AuditIssue[] {
       businessImplication: "Roughly 9 in 10 shoppers read reviews before buying; their absence directly weakens purchase confidence.",
       estimatedImpact: "+4–6% conversion",
       fix: "Add a reviews section or star ratings on your homepage and product pages.",
-      revenueLossEstimate: 4500,
+      revenueLossEstimate: estimateAnnualRevenueLoss(4, 6),
       confidence: "medium",
       effort: "medium",
     });
@@ -69,7 +70,7 @@ export function runTrustChecks(page: ScrapedPage): AuditIssue[] {
       businessImplication: "Clear return terms measurably increase willingness to complete a purchase.",
       estimatedImpact: "+2–4% conversion",
       fix: "Add a return policy callout ('Free 30-day returns') near the CTA or in the header.",
-      revenueLossEstimate: 2000,
+      revenueLossEstimate: estimateAnnualRevenueLoss(2, 4),
       confidence: "medium",
       effort: "low",
     });
@@ -92,7 +93,7 @@ export function runTrustChecks(page: ScrapedPage): AuditIssue[] {
       businessImplication: "Missing privacy policies can also block ad accounts and create compliance exposure under GDPR/CCPA.",
       estimatedImpact: "+0.5–1.5% checkout completion",
       fix: "Add a privacy policy link to your footer and ensure it covers data collection.",
-      revenueLossEstimate: 1000,
+      revenueLossEstimate: estimateAnnualRevenueLoss(0.5, 1.5),
       confidence: "high",
       effort: "low",
     });
@@ -115,7 +116,7 @@ export function runTrustChecks(page: ScrapedPage): AuditIssue[] {
       businessImplication: "Brand story pages build credibility that measurably lifts conversion for unfamiliar shoppers.",
       estimatedImpact: "+0.5–1% conversion",
       fix: "Add an 'About Us' page link in your navigation or footer.",
-      revenueLossEstimate: 500,
+      revenueLossEstimate: estimateAnnualRevenueLoss(0.5, 1),
       confidence: "medium",
       effort: "low",
     });

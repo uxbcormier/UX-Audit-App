@@ -60,6 +60,11 @@ export interface TeaserResults {
   benchmarkSampleSize: number;
   benchmarkIsFallback: boolean;
   revenueOpportunity: RevenueOpportunity;
+  // Monthly revenue assumed when translating conversion-lift % into the
+  // dollar figures above, for sites we have no real revenue data for.
+  // Surfaced in the UI so the assumption is never hidden, alongside an
+  // option to recalculate against the visitor's actual revenue.
+  assumedMonthlyRevenue: number;
   signalSummary: SignalSummary[];
   issues: AuditIssue[]; // only top 3 shown (2 full + 1 locked on the client)
   totalIssueCount: number;
@@ -68,6 +73,9 @@ export interface TeaserResults {
     mobileScore: number;
     desktopScore: number;
   };
+  // Above-the-fold screenshot taken during the scan, shown free in the
+  // teaser for credibility. Null if the capture failed.
+  screenshotUrl: string | null;
 }
 
 export interface FullResults extends TeaserResults {

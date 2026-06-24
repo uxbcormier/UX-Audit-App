@@ -13,6 +13,9 @@ export interface ScrapedPage {
   hasSSL: boolean;
   statusCode: number;
   responseTimeMs: number;
+  // Above-the-fold screenshot as a data URL, for display in the report.
+  // Null if the capture failed — never worth failing the whole scan over.
+  screenshotDataUrl: string | null;
 }
 
 // Phrases that show up on bot-block / challenge pages instead of real content.
@@ -62,7 +65,10 @@ export async function scrapePage(url: string): Promise<ScrapedPage> {
   const browser = await launchBrowser();
 
   try {
-    const context = await browser.newContext({ userAgent: USER_AGENT });
+    const context = await browser.newContext({
+      userAgent: USER_AGENT,
+      viewport: { width: 1280, height: 900 },
+    });
     const page = await context.newPage();
 
     let response;
@@ -106,6 +112,14 @@ export async function scrapePage(url: string): Promise<ScrapedPage> {
       );
     }
 
+    // Above-the-fold only (not full-page) — keeps the capture fast and the
+    // resulting data URL small enough to store inline with the rest of the
+    // scan results. A failed screenshot shouldn't fail the whole scan.
+    const screenshotDataUrl = await page
+      .screenshot({ type: "jpeg", quality: 60 })
+      .then((buffer) => `data:image/jpeg;base64,${buffer.toString("base64")}`)
+      .catch(() => null);
+
     const images = $("img")
       .map((_, el) => ({
         src: $(el).attr("src") ?? "",
@@ -133,6 +147,7 @@ export async function scrapePage(url: string): Promise<ScrapedPage> {
       hasSSL: normalizedUrl.startsWith("https"),
       statusCode: status,
       responseTimeMs,
+      screenshotDataUrl,
     };
   } finally {
     await browser.close();

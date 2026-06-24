@@ -17,6 +17,7 @@ import {
 import Link from "next/link";
 import type { TeaserResults, FullResults, AuditIssue, ConversionSignal } from "@/lib/scanner/types";
 import { derivePriority } from "@/lib/scanner/priority";
+import { ASSUMED_MONTHLY_REVENUE } from "@/lib/scanner/revenue";
 import PaywallModal from "@/components/PaywallModal";
 
 interface ScanData {
@@ -180,6 +181,7 @@ export default function ScanPage() {
   const [scan, setScan] = useState<ScanData | null>(null);
   const [loading, setLoading] = useState(true);
   const [showPaywall, setShowPaywall] = useState(false);
+  const [userMonthlyRevenue, setUserMonthlyRevenue] = useState("");
 
   const paymentResult = searchParams.get("payment");
 
@@ -229,6 +231,15 @@ export default function ScanPage() {
   const teaser = scan.teaserResults;
   const full = scan.fullResults;
   const results = full ?? teaser;
+
+  // Every dollar figure below is derived from an assumed monthly revenue
+  // baseline (see lib/scanner/revenue.ts) until the visitor enters their
+  // real number, at which point we rescale linearly against that baseline.
+  const assumedMonthlyRevenue = results?.assumedMonthlyRevenue ?? ASSUMED_MONTHLY_REVENUE;
+  const parsedUserRevenue = Number(userMonthlyRevenue.replace(/[^0-9.]/g, ""));
+  const isPersonalized = parsedUserRevenue > 0;
+  const revenueMultiplier = isPersonalized ? parsedUserRevenue / assumedMonthlyRevenue : 1;
+  const personalizedRevenueLoss = Math.round((scan.revenueLoss ?? 0) * revenueMultiplier);
 
   return (
     <main className="min-h-screen bg-neutral-950">
@@ -324,6 +335,26 @@ export default function ScanPage() {
         {/* Results */}
         {scan.status === "COMPLETE" && results && (
           <>
+            {/* Screenshot */}
+            {results.screenshotUrl && (
+              <section className="mb-12">
+                <div className="rounded-xl border border-neutral-800 overflow-hidden bg-neutral-900">
+                  <div className="flex items-center gap-2 px-3 py-2 bg-neutral-950 border-b border-neutral-800">
+                    <span className="w-2.5 h-2.5 rounded-full bg-red-500/70" />
+                    <span className="w-2.5 h-2.5 rounded-full bg-yellow-500/70" />
+                    <span className="w-2.5 h-2.5 rounded-full bg-green-500/70" />
+                    <span className="text-xs text-neutral-500 ml-2 truncate">{scan.url}</span>
+                  </div>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={results.screenshotUrl}
+                    alt={`Screenshot of ${scan.url}`}
+                    className="w-full block"
+                  />
+                </div>
+              </section>
+            )}
+
             {/* 1. Score */}
             <section className="mb-16">
               <ScoreHero
@@ -353,19 +384,39 @@ export default function ScanPage() {
               <p className="text-sm text-neutral-500 mb-8">Estimated conversion lift available</p>
 
               <p className="text-2xl sm:text-3xl font-bold text-red-400 mb-1">
-                ${results.revenueOpportunity.monthlyLossLow.toLocaleString()}–$
-                {results.revenueOpportunity.monthlyLossHigh.toLocaleString()}
+                ${Math.round(results.revenueOpportunity.monthlyLossLow * revenueMultiplier).toLocaleString()}–$
+                {Math.round(results.revenueOpportunity.monthlyLossHigh * revenueMultiplier).toLocaleString()}
                 <span className="text-base text-neutral-500 font-normal">/month</span>
               </p>
               <p className="text-sm text-neutral-500 mb-6">
                 Estimated revenue being left on the table — roughly $
-                {results.revenueOpportunity.annualLossLow.toLocaleString()}–$
-                {results.revenueOpportunity.annualLossHigh.toLocaleString()} annually
+                {Math.round(results.revenueOpportunity.annualLossLow * revenueMultiplier).toLocaleString()}–$
+                {Math.round(results.revenueOpportunity.annualLossHigh * revenueMultiplier).toLocaleString()} annually
               </p>
 
               <p className="text-xs text-neutral-500 mb-4">
                 Based on: {results.revenueOpportunity.contributingFactors.join(" · ")}
               </p>
+
+              <div className="bg-neutral-900 border border-neutral-800 rounded-xl px-4 py-3 mb-4">
+                <p className="text-xs text-neutral-500 mb-2">
+                  {isPersonalized
+                    ? "Personalized using the monthly revenue you entered below."
+                    : `Assumes a $${assumedMonthlyRevenue.toLocaleString()}/month store, typical for a small ecommerce brand — enter your real number for a personalized estimate.`}
+                </p>
+                <div className="flex items-center gap-2">
+                  <span className="text-neutral-500 text-sm">$</span>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    placeholder={assumedMonthlyRevenue.toLocaleString()}
+                    value={userMonthlyRevenue}
+                    onChange={(e) => setUserMonthlyRevenue(e.target.value)}
+                    className="flex-1 min-w-0 bg-neutral-950 border border-neutral-700 rounded-lg px-3 py-1.5 text-sm text-neutral-100 placeholder:text-neutral-600 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  />
+                  <span className="text-neutral-500 text-sm whitespace-nowrap">/month revenue</span>
+                </div>
+              </div>
 
               {scan.isPaid ? (
                 <p className="text-sm text-neutral-400 max-w-lg">
@@ -505,7 +556,7 @@ export default function ScanPage() {
       {showPaywall && scan && (
         <PaywallModal
           scanId={scan.id}
-          revenueLoss={scan.revenueLoss ?? 0}
+          revenueLoss={personalizedRevenueLoss}
           totalIssues={scan.teaserResults?.totalIssueCount ?? 0}
           onClose={() => setShowPaywall(false)}
         />

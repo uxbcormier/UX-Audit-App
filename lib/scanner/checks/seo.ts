@@ -1,5 +1,6 @@
 import type { ScrapedPage } from "../scraper";
 import type { AuditIssue } from "../types";
+import { estimateAnnualRevenueLoss } from "../revenue";
 
 export function runSeoChecks(page: ScrapedPage): AuditIssue[] {
   const issues: AuditIssue[] = [];
@@ -18,7 +19,7 @@ export function runSeoChecks(page: ScrapedPage): AuditIssue[] {
         "Lower click-through rates from organic search mean fewer new visitors ever reach your store.",
       estimatedImpact: "+2–4% organic click-through rate",
       fix: "Add a descriptive <title> tag (50–60 characters) to your homepage.",
-      revenueLossEstimate: 3000,
+      revenueLossEstimate: estimateAnnualRevenueLoss(2, 4),
       confidence: "high",
       effort: "low",
     });
@@ -35,7 +36,7 @@ export function runSeoChecks(page: ScrapedPage): AuditIssue[] {
       businessImplication: "Truncated titles measurably reduce click-through rates from search.",
       estimatedImpact: "+1–2% organic click-through rate",
       fix: "Shorten your page title to under 60 characters while keeping your main keyword.",
-      revenueLossEstimate: 800,
+      revenueLossEstimate: estimateAnnualRevenueLoss(1, 2),
       confidence: "high",
       effort: "low",
     });
@@ -54,7 +55,7 @@ export function runSeoChecks(page: ScrapedPage): AuditIssue[] {
       businessImplication: "Weaker snippets convert fewer searchers into clicks before they even reach your site.",
       estimatedImpact: "+1–3% organic click-through rate",
       fix: "Add a compelling meta description (150–160 characters) that includes your main value proposition.",
-      revenueLossEstimate: 1500,
+      revenueLossEstimate: estimateAnnualRevenueLoss(1, 3),
       confidence: "high",
       effort: "low",
     });
@@ -73,7 +74,7 @@ export function runSeoChecks(page: ScrapedPage): AuditIssue[] {
       businessImplication: "Weaker topical relevance signals reduce qualified organic traffic.",
       estimatedImpact: "+1–2% organic relevance",
       fix: "Add a single, descriptive H1 tag that includes your primary keyword.",
-      revenueLossEstimate: 1000,
+      revenueLossEstimate: estimateAnnualRevenueLoss(1, 2),
       confidence: "high",
       effort: "low",
     });
@@ -90,7 +91,7 @@ export function runSeoChecks(page: ScrapedPage): AuditIssue[] {
       businessImplication: "Diluted topical signals reduce organic ranking strength over time.",
       estimatedImpact: "+0.5–1% organic relevance",
       fix: "Keep only one H1 tag. Use H2 and H3 for sub-sections.",
-      revenueLossEstimate: 400,
+      revenueLossEstimate: estimateAnnualRevenueLoss(0.5, 1),
       confidence: "high",
       effort: "low",
     });
@@ -110,7 +111,7 @@ export function runSeoChecks(page: ScrapedPage): AuditIssue[] {
       businessImplication: "Missed image-search traffic and added accessibility compliance risk.",
       estimatedImpact: "+0.5–1.5% organic image traffic",
       fix: "Add descriptive alt text to all product and content images.",
-      revenueLossEstimate: 600,
+      revenueLossEstimate: estimateAnnualRevenueLoss(0.5, 1.5),
       confidence: "high",
       effort: "medium",
     });
@@ -129,7 +130,7 @@ export function runSeoChecks(page: ScrapedPage): AuditIssue[] {
       businessImplication: "Search penalties plus an immediate trust break at the worst possible moment in the funnel.",
       estimatedImpact: "+5–9% checkout completion",
       fix: "Install an SSL certificate and redirect all HTTP traffic to HTTPS.",
-      revenueLossEstimate: 5000,
+      revenueLossEstimate: estimateAnnualRevenueLoss(5, 9),
       confidence: "high",
       effort: "medium",
     });

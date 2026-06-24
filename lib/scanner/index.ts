@@ -5,6 +5,7 @@ import { runSeoChecks } from "./checks/seo";
 import { runUxChecks } from "./checks/ux";
 import { runTrustChecks } from "./checks/trust";
 import { runPerformanceChecks } from "./checks/performance";
+import { ASSUMED_MONTHLY_REVENUE } from "./revenue";
 import type {
   AuditIssue,
   ConversionSignal,
@@ -155,11 +156,13 @@ export async function runFullScan(url: string): Promise<{ teaser: TeaserResults;
     benchmarkSampleSize: 0,
     benchmarkIsFallback: true,
     revenueOpportunity,
+    assumedMonthlyRevenue: ASSUMED_MONTHLY_REVENUE,
     signalSummary,
     issues: allIssues.slice(0, 3),
     totalIssueCount: allIssues.length,
     categorySummary: summary,
     pageSpeed,
+    screenshotUrl: page.screenshotDataUrl,
   };
 
   const full: FullResults = {
@@ -172,11 +175,13 @@ export async function runFullScan(url: string): Promise<{ teaser: TeaserResults;
     benchmarkSampleSize: 0,
     benchmarkIsFallback: true,
     revenueOpportunity,
+    assumedMonthlyRevenue: ASSUMED_MONTHLY_REVENUE,
     signalSummary,
     issues: allIssues,
     totalIssueCount: allIssues.length,
     categorySummary: summary,
     pageSpeed,
+    screenshotUrl: page.screenshotDataUrl,
     recommendations: generateRecommendations(allIssues),
     pageUrl: url,
     scannedAt: new Date().toISOString(),
