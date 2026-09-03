@@ -1,6 +1,13 @@
 import { Resend } from "resend";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+let resendClient: Resend | undefined;
+
+function getResend(): Resend {
+  if (!resendClient) {
+    resendClient = new Resend(process.env.RESEND_API_KEY);
+  }
+  return resendClient;
+}
 
 export async function sendReportReadyEmail({
   to,
@@ -11,7 +18,7 @@ export async function sendReportReadyEmail({
   scanUrl: string;
   reportUrl: string;
 }) {
-  await resend.emails.send({
+  await getResend().emails.send({
     from: process.env.EMAIL_FROM!,
     to,
     subject: "Your full UX Audit report is ready",

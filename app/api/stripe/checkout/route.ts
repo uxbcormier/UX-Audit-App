@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { stripe, FULL_AUDIT_PRICE_CENTS } from "@/lib/stripe";
+import { getStripe, FULL_AUDIT_PRICE_CENTS } from "@/lib/stripe";
 import { prisma } from "@/lib/prisma";
 
 const schema = z.object({
@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
 
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:3000";
 
-  const session = await stripe.checkout.sessions.create({
+  const session = await getStripe().checkout.sessions.create({
     mode: "payment",
     customer_email: email,
     line_items: [
