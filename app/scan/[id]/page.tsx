@@ -29,7 +29,7 @@ interface ScanData {
   teaserResults: TeaserResults | null;
   fullResults: FullResults | null;
   isPaid: boolean;
-  failureReason: "blocked" | "unreachable" | "empty" | null;
+  failureReason: "blocked" | "unreachable" | "empty" | "timeout" | null;
 }
 
 const CATEGORY_ICON: Record<string, React.ReactNode> = {
@@ -302,6 +302,11 @@ export default function ScanPage() {
                 {scan.url} came back with almost no visible content, which
                 usually means the page renders entirely via JavaScript that
                 our scanner can&apos;t execute.
+              </p>
+            ) : scan.failureReason === "timeout" ? (
+              <p className="text-neutral-500 mb-6">
+                This scan took longer than expected and was stopped. This is
+                usually a temporary issue — try again in a moment.
               </p>
             ) : (
               <p className="text-neutral-500 mb-6">
