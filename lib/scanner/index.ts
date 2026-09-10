@@ -158,12 +158,20 @@ export async function runFullScan(url: string): Promise<{ teaser: TeaserResults;
   const { browser, context } = await launchScanSession();
 
   try {
-    const [psResult, page] = await Promise.all([
-      runPageSpeed(url).catch(() => null),
-      scrapeWithContext(context, url),
-    ]);
+    // PageSpeed's own round trip (a real Lighthouse run per strategy) is the
+    // single slowest thing this route does. Kick it off immediately and let
+    // it run in the background rather than blocking product-page discovery
+    // on it — that discovery only depends on the homepage scrape, not on
+    // PageSpeed, so serializing them wasted time against the route's
+    // maxDuration budget for no reason.
+    const pageSpeedPromise = runPageSpeed(url).catch(() => null);
+    const page = await scrapeWithContext(context, url);
+    const productPromise = scanProductPage(context, page, url);
 
-    const { issues: productIssues, productPageUrl } = await scanProductPage(context, page, url);
+    const [psResult, { issues: productIssues, productPageUrl }] = await Promise.all([
+      pageSpeedPromise,
+      productPromise,
+    ]);
 
     const industry = detectIndustry(page);
 
