@@ -139,7 +139,7 @@ export default function HomePage() {
           )}
 
           <p className="mt-4 text-sm text-neutral-500">
-            Free scan · No account required · Results in ~60 seconds
+            Free scan · No account required · Best results on your own store
           </p>
         </form>
 
