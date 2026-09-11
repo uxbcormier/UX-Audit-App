@@ -40,6 +40,14 @@ export class ScrapeError extends Error {
 
 const USER_AGENT = "Mozilla/5.0 (compatible; UXAuditBot/1.0; +https://uxaudit.io)";
 
+// Trips some basic anti-bot heuristics that block any automated browser on
+// sight, independent of the (honest, self-identifying) User-Agent above —
+// e.g. a naive check for `navigator.webdriver`. This doesn't hide who we
+// are — the UA above still identifies UXAuditBot for any site owner who
+// wants to allowlist it — it just avoids the crudest "is this Playwright"
+// tells that would block us before that identity is even considered.
+const STEALTH_LAUNCH_ARGS = ["--disable-blink-features=AutomationControlled"];
+
 // `@sparticuz/chromium`'s bundled binary is built for Lambda-style Linux and
 // won't run on a developer's Mac/Windows machine, so production and local
 // dev launch the browser two different ways.
@@ -48,14 +56,14 @@ async function launchBrowser(): Promise<Browser> {
     const chromium = (await import("@sparticuz/chromium")).default;
     const { chromium: playwrightChromium } = await import("playwright-core");
     return playwrightChromium.launch({
-      args: chromium.args,
+      args: [...chromium.args, ...STEALTH_LAUNCH_ARGS],
       executablePath: await chromium.executablePath(),
       headless: true,
     });
   }
 
   const { chromium: localChromium } = await import("playwright");
-  return localChromium.launch({ headless: true });
+  return localChromium.launch({ headless: true, args: STEALTH_LAUNCH_ARGS });
 }
 
 // A scan visits more than one page (homepage, and often a product page), but
@@ -66,6 +74,14 @@ export async function launchScanSession(): Promise<{ browser: Browser; context: 
   const context = await browser.newContext({
     userAgent: USER_AGENT,
     viewport: { width: 1280, height: 900 },
+    locale: "en-US",
+    extraHTTPHeaders: { "Accept-Language": "en-US,en;q=0.9" },
+  });
+  // Playwright leaves `navigator.webdriver` set to true by default, which is
+  // the single most common automated-browser tell — some sites block on
+  // this alone before anything else is even checked.
+  await context.addInitScript(() => {
+    Object.defineProperty(navigator, "webdriver", { get: () => undefined });
   });
   return { browser, context };
 }
