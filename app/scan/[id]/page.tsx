@@ -187,10 +187,10 @@ export default function ScanPage() {
 
   const fetchScan = useCallback(async () => {
     const res = await fetch(`/api/scan/${id}`);
+    setLoading(false);
     if (!res.ok) return;
     const data: ScanData = await res.json();
     setScan(data);
-    setLoading(false);
     return data;
   }, [id]);
 
