@@ -2,6 +2,15 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   serverExternalPackages: ["cheerio", "playwright-core", "playwright", "@sparticuz/chromium"],
+  // `serverExternalPackages` keeps playwright-core's code from being bundled,
+  // but Vercel's file tracer still decides which of its files get shipped
+  // to the deployed function — and it misses non-code assets like
+  // browsers.json that playwright-core reads at runtime even when an
+  // explicit executablePath is provided, crashing every scan with
+  // "Cannot find module '.../playwright-core/browsers.json'".
+  outputFileTracingIncludes: {
+    "/api/scan": ["./node_modules/playwright-core/**/*"],
+  },
   experimental: {
     // Allow longer scan timeouts on API routes
     // Disabled: persistent Turbopack cache writes inside `.next` can trigger
