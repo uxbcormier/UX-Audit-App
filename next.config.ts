@@ -8,8 +8,13 @@ const nextConfig: NextConfig = {
   // browsers.json that playwright-core reads at runtime even when an
   // explicit executablePath is provided, crashing every scan with
   // "Cannot find module '.../playwright-core/browsers.json'".
+  // Keyed on both the specific route and a wildcard: the specific key is
+  // the documented approach, but the wildcard is here too in case the
+  // route-glob matching against this app-router route doesn't line up the
+  // same way under Turbopack that the docs' webpack-era examples assume.
   outputFileTracingIncludes: {
     "/api/scan": ["./node_modules/playwright-core/**/*"],
+    "/*": ["./node_modules/playwright-core/**/*"],
   },
   experimental: {
     // Allow longer scan timeouts on API routes
