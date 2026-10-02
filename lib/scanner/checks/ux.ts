@@ -1,6 +1,6 @@
 import type { ScrapedPage } from "../scraper";
 import type { AuditIssue } from "../types";
-import { estimateAnnualRevenueLoss } from "../revenue";
+import { cite } from "../research";
 
 const AD_NETWORK_SIGNS =
   /doubleclick\.net|googlesyndication\.com|adsbygoogle|taboola\.com|outbrain\.com|criteo\.(com|net)|media\.net\/|amazon-adsystem\.com/i;
@@ -29,27 +29,32 @@ export function runUxChecks(page: ScrapedPage): AuditIssue[] {
     issues.push({
       id: "ux-no-cta",
       category: "UX",
-      signal: "Add-to-Cart Friction",
+      metric: "Decision Complexity",
       severity: "critical",
       title: "No clear call-to-action found",
       observation: "No purchase or action button (e.g. 'Shop Now') was detected above the fold.",
+      evidence: {
+        type: "element-presence",
+        detail:
+          "0 links or buttons matched common call-to-action phrasing (buy, shop, checkout, get started, order, purchase) on the homepage.",
+        value: 0,
+      },
       behavioralExplanation:
-        "Users require multiple interactions before discovering what action to take, which delays evaluation and increases abandonment risk.",
-      businessImplication: "Visitors who don't see an obvious next step leave without ever entering the funnel.",
-      estimatedImpact: "+5–9% conversion",
-      fix: "Add a prominent CTA button ('Shop Now', 'Get Started') above the fold with high contrast.",
-      revenueLossEstimate: estimateAnnualRevenueLoss(5, 9),
-      confidence: "medium",
+        "Shoppers need an obvious next step within the first few seconds; without one, evaluation stalls and abandonment risk rises.",
+      businessImplication: "Visitors who don't see an obvious next step can leave without ever entering the funnel.",
+      businessImpact: "high",
+      confidence: 65,
       effort: "low",
+      recommendation: "Add a prominent CTA button ('Shop Now', 'Get Started') above the fold with high contrast.",
+      sourceLabel: "research-supported",
+      researchContext: cite("nngHeuristics"),
     });
   }
 
   // Check for homepage decision paralysis: many distinct, competing CTA labels
   // dilute the "one obvious next step" a homepage should offer.
   const ctaLabels = new Set(
-    ctaButtons
-      .map((el) => $(el).text().trim().replace(/\s+/g, " ").toLowerCase())
-      .filter(Boolean)
+    ctaButtons.map((el) => $(el).text().trim().replace(/\s+/g, " ").toLowerCase()).filter(Boolean)
   );
 
   if (ctaLabels.size > 6) {
@@ -57,19 +62,26 @@ export function runUxChecks(page: ScrapedPage): AuditIssue[] {
     issues.push({
       id: "ux-decision-paralysis",
       category: "UX",
-      signal: "Time-to-Product",
+      metric: "Decision Complexity",
       severity: "warning",
       title: "Too many competing calls-to-action",
       observation: `${ctaLabels.size} distinct call-to-action labels (e.g. "${sampleLabels}") were found on the homepage.`,
+      evidence: {
+        type: "count",
+        detail: `${ctaLabels.size} distinct call-to-action labels found on the homepage.`,
+        value: ctaLabels.size,
+      },
       behavioralExplanation:
-        "When a page offers many different 'next steps' at once, deciding which one to take takes longer, and a meaningful share of shoppers decide not to act at all.",
+        "When a page offers many different 'next steps' at once, deciding which one to take takes longer, and some share of shoppers decide not to act at all.",
       businessImplication:
-        "A homepage without one clear primary action spreads attention thin and measurably slows the path to purchase.",
-      estimatedImpact: "+1–3% conversion",
-      fix: "Pick one primary call-to-action per homepage section and demote the rest to secondary (text link) styling.",
-      revenueLossEstimate: estimateAnnualRevenueLoss(1, 3),
-      confidence: "medium",
+        "A homepage without one clear primary action spreads attention thin and can slow the path to purchase.",
+      businessImpact: "medium",
+      confidence: 70,
       effort: "medium",
+      recommendation:
+        "Pick one primary call-to-action per homepage section and demote the rest to secondary (text link) styling.",
+      sourceLabel: "research-supported",
+      researchContext: cite("hicksLaw"),
     });
   }
 
@@ -82,18 +94,24 @@ export function runUxChecks(page: ScrapedPage): AuditIssue[] {
     issues.push({
       id: "ux-no-contact",
       category: "UX",
-      signal: "Trust Reinforcement",
+      metric: "Trust Coverage",
       severity: "high",
       title: "No visible contact information",
       observation: "No phone number, email address, or chat widget was found on the homepage.",
+      evidence: {
+        type: "element-presence",
+        detail: "No phone number, email address, or known chat-widget script detected in the page HTML.",
+        value: 0,
+      },
       behavioralExplanation:
         "Shoppers with pre-purchase questions have no low-friction way to reach a human, so hesitation has nowhere to resolve itself.",
-      businessImplication: "A meaningful share of shoppers abandon when they can't find a support contact.",
-      estimatedImpact: "+3–5% checkout completion",
-      fix: "Add a phone number or live chat widget to the header or footer.",
-      revenueLossEstimate: estimateAnnualRevenueLoss(3, 5),
-      confidence: "medium",
+      businessImplication: "Some share of shoppers abandon when they can't find a support contact.",
+      businessImpact: "medium",
+      confidence: 70,
       effort: "low",
+      recommendation: "Add a phone number or live chat widget to the header or footer.",
+      sourceLabel: "research-supported",
+      researchContext: cite("trustSignalsGeneral"),
     });
   }
 
@@ -105,18 +123,24 @@ export function runUxChecks(page: ScrapedPage): AuditIssue[] {
     issues.push({
       id: "ux-no-search",
       category: "UX",
-      signal: "Time-to-Product",
+      metric: "Search Experience",
       severity: "high",
       title: "No site search found",
       observation: "No search bar was detected on the homepage.",
+      evidence: {
+        type: "element-presence",
+        detail: "No search input or search-labeled element detected in the page markup.",
+        value: 0,
+      },
       behavioralExplanation:
         "Shoppers who already know what they want are forced to browse navigation instead, adding steps between intent and product discovery.",
-      businessImplication: "Search-intent shoppers convert at 2–3x the rate of browsers, and that lift is being left on the table.",
-      estimatedImpact: "+4–7% conversion",
-      fix: "Add a prominent search bar to the header on all pages.",
-      revenueLossEstimate: estimateAnnualRevenueLoss(4, 7),
-      confidence: "high",
+      businessImplication: "Search-intent shoppers tend to convert at a higher rate than browsers, and that lift is being left on the table.",
+      businessImpact: "medium",
+      confidence: 80,
       effort: "medium",
+      recommendation: "Add a prominent search bar to the header on all pages.",
+      sourceLabel: "research-supported",
+      researchContext: cite("nngHeuristics"),
     });
   }
 
@@ -126,18 +150,23 @@ export function runUxChecks(page: ScrapedPage): AuditIssue[] {
     issues.push({
       id: "ux-weak-navigation",
       category: "UX",
-      signal: "Time-to-Product",
+      metric: "Product Discovery Friction",
       severity: "warning",
       title: "Sparse navigation menu",
       observation: `Only ${navLinks} navigation link${navLinks === 1 ? "" : "s"} were found in the header.`,
+      evidence: {
+        type: "count",
+        detail: `${navLinks} link(s) found inside <nav>/<header> elements.`,
+        value: navLinks,
+      },
       behavioralExplanation:
         "With few paths into the catalog, shoppers run out of obvious next clicks and bounce instead of exploring further.",
-      businessImplication: "Thin navigation reduces pages per session and the odds any given visit ends in a purchase.",
-      estimatedImpact: "+1–3% conversion",
-      fix: "Add clear category navigation with dropdowns for product collections.",
-      revenueLossEstimate: estimateAnnualRevenueLoss(1, 3),
-      confidence: "high",
+      businessImplication: "Thin navigation can reduce pages per session and the odds any given visit ends in a purchase.",
+      businessImpact: "low",
+      confidence: 75,
       effort: "medium",
+      recommendation: "Add clear category navigation with dropdowns for product collections.",
+      sourceLabel: "internal-heuristic",
     });
   }
 
@@ -147,18 +176,23 @@ export function runUxChecks(page: ScrapedPage): AuditIssue[] {
     issues.push({
       id: "ux-no-viewport",
       category: "UX",
-      signal: "Mobile Complexity",
+      metric: "Mobile Friction",
       severity: "critical",
       title: "Missing mobile viewport meta tag",
       observation: "No viewport meta tag was found in the page head.",
+      evidence: {
+        type: "element-presence",
+        detail: 'No <meta name="viewport"> tag found in the page head.',
+        value: 0,
+      },
       behavioralExplanation:
         "Mobile browsers fall back to rendering a desktop-width layout, forcing shoppers to pinch and zoom through every screen.",
-      businessImplication: "Over 60% of ecommerce traffic is mobile — a broken mobile render kills conversion for the majority of visitors.",
-      estimatedImpact: "+6–10% mobile conversion",
-      fix: 'Add <meta name="viewport" content="width=device-width, initial-scale=1"> to your <head>.',
-      revenueLossEstimate: estimateAnnualRevenueLoss(6, 10),
-      confidence: "high",
+      businessImplication: "The majority of ecommerce traffic is mobile — a broken mobile render affects the majority of visitors.",
+      businessImpact: "high",
+      confidence: 100,
       effort: "low",
+      recommendation: 'Add <meta name="viewport" content="width=device-width, initial-scale=1"> to your <head>.',
+      sourceLabel: "observed",
     });
   }
 
@@ -167,19 +201,22 @@ export function runUxChecks(page: ScrapedPage): AuditIssue[] {
     issues.push({
       id: "ux-homepage-ads",
       category: "UX",
-      signal: "Trust Reinforcement",
+      metric: "Trust Coverage",
       severity: "warning",
       title: "Third-party ad network detected on homepage",
       observation: "The homepage loads a script from a third-party ad network.",
+      evidence: {
+        type: "structural",
+        detail: "A script reference matching a known third-party ad network domain was found in the page HTML.",
+      },
       behavioralExplanation:
         "Shoppers associate on-site ads with lower-quality retailers, and on mobile, ads compete directly with your own calls-to-action for limited screen space.",
-      businessImplication:
-        "On-site ads are generally perceived negatively and can distract from or interrupt the shopping flow, particularly on mobile.",
-      estimatedImpact: "+0.5–1.5% conversion",
-      fix: "Remove third-party ad placements from the homepage, or move them well below the primary shopping content.",
-      revenueLossEstimate: estimateAnnualRevenueLoss(0.5, 1.5),
-      confidence: "high",
+      businessImplication: "On-site ads can distract from or interrupt the shopping flow, particularly on mobile.",
+      businessImpact: "low",
+      confidence: 90,
       effort: "low",
+      recommendation: "Remove third-party ad placements from the homepage, or move them well below the primary shopping content.",
+      sourceLabel: "internal-heuristic",
     });
   }
 
@@ -187,11 +224,7 @@ export function runUxChecks(page: ScrapedPage): AuditIssue[] {
   const logoCandidates = $("header *, nav *")
     .filter((_, el) => {
       const $el = $(el);
-      const haystack = [
-        $el.attr("class") ?? "",
-        $el.attr("alt") ?? "",
-        $el.attr("src") ?? "",
-      ]
+      const haystack = [$el.attr("class") ?? "", $el.attr("alt") ?? "", $el.attr("src") ?? ""]
         .join(" ")
         .toLowerCase();
       return haystack.includes("logo");
@@ -210,19 +243,22 @@ export function runUxChecks(page: ScrapedPage): AuditIssue[] {
       issues.push({
         id: "ux-logo-not-linked",
         category: "UX",
-        signal: "Time-to-Product",
+        metric: "Product Discovery Friction",
         severity: "low",
         title: "Site logo doesn't link to the homepage",
         observation: "A site logo was found, but it isn't wrapped in a link back to the homepage.",
+        evidence: {
+          type: "structural",
+          detail: 'The detected logo element is not wrapped in (or paired with) an <a href="/"> link.',
+        },
         behavioralExplanation:
           "Shoppers instinctively click the logo to restart browsing or escape a page that isn't working for them; when it goes nowhere, that easy reset disappears.",
-        businessImplication:
-          "Without a homepage-linked logo, shoppers find it more troublesome to restart product finding after hitting a dead end.",
-        estimatedImpact: "+0.5–1% conversion",
-        fix: "Wrap your site logo in a link pointing to your homepage ('/').",
-        revenueLossEstimate: estimateAnnualRevenueLoss(0.5, 1),
-        confidence: "medium",
+        businessImplication: "Without a homepage-linked logo, shoppers find it more troublesome to restart product finding after hitting a dead end.",
+        businessImpact: "low",
+        confidence: 65,
         effort: "low",
+        recommendation: "Wrap your site logo in a link pointing to your homepage ('/').",
+        sourceLabel: "internal-heuristic",
       });
     }
   }
@@ -246,19 +282,23 @@ export function runUxChecks(page: ScrapedPage): AuditIssue[] {
     issues.push({
       id: "ux-nonclickable-dropdown-headings",
       category: "UX",
-      signal: "Time-to-Product",
+      metric: "Product Discovery Friction",
       severity: "warning",
       title: "Navigation dropdown headings aren't clickable links",
       observation: `${nonClickableHeadingCount} navigation menu item${nonClickableHeadingCount > 1 ? "s" : ""} with a dropdown submenu don't have a clickable link on the heading itself.`,
+      evidence: {
+        type: "count",
+        detail: `${nonClickableHeadingCount} navigation item(s) with a submenu have no direct href on the parent heading.`,
+        value: nonClickableHeadingCount,
+      },
       behavioralExplanation:
         "Shoppers expect to click a category heading to see all items in that category, not just the items revealed in the dropdown; when the heading does nothing, it breaks that expectation and narrows their browsing options.",
-      businessImplication:
-        "This forces shoppers into narrower scopes than expected and makes explorative browsing more difficult.",
-      estimatedImpact: "+1–2% conversion",
-      fix: "Make every top-level navigation heading a real link to its category overview page, even when it also opens a dropdown.",
-      revenueLossEstimate: estimateAnnualRevenueLoss(1, 2),
-      confidence: "medium",
+      businessImplication: "This forces shoppers into narrower scopes than expected and makes explorative browsing more difficult.",
+      businessImpact: "low",
+      confidence: 70,
       effort: "low",
+      recommendation: "Make every top-level navigation heading a real link to its category overview page, even when it also opens a dropdown.",
+      sourceLabel: "internal-heuristic",
     });
   }
 

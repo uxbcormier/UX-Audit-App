@@ -8,36 +8,30 @@ import { runUxChecks } from "./checks/ux";
 import { runTrustChecks } from "./checks/trust";
 import { runPerformanceChecks } from "./checks/performance";
 import { looksLikeSingleProductPage, runProductChecks } from "./checks/product";
-import { ASSUMED_MONTHLY_REVENUE } from "./revenue";
+import { computeMetricResults, SEVERITY_WEIGHT } from "./metrics";
 import type {
   AuditIssue,
-  ConversionSignal,
   FullResults,
   IssueCategory,
-  IssueSeverity,
-  RevenueOpportunity,
-  SignalSummary,
   TeaserResults,
 } from "./types";
 
-const SEVERITY_WEIGHT: Record<IssueSeverity, number> = {
-  critical: 25,
-  high: 15,
-  warning: 8,
-  low: 3,
+// Placeholder benchmark shown until the caller (app/api/scan/route.ts)
+// merges in a real one computed from our own scan history — kept here so
+// the result shape is always valid even before that DB lookup runs.
+const PLACEHOLDER_BENCHMARK: TeaserResults["benchmark"] = {
+  avgScore: 72,
+  topQuartileScore: 85,
+  medianScore: null,
+  sampleSize: 0,
+  tier: "fallback",
+  label: "Early benchmark estimate",
+  userPercentile: null,
 };
-
-// Published industry reference points shown alongside every score.
-const INDUSTRY_AVG_SCORE = 72;
-const TOP_BRAND_SCORE = 85;
 
 function calcScore(issues: AuditIssue[]): number {
   const totalDeduction = issues.reduce((acc, i) => acc + SEVERITY_WEIGHT[i.severity], 0);
   return Math.max(0, Math.min(100, 100 - totalDeduction));
-}
-
-function calcRevenueLoss(issues: AuditIssue[]): number {
-  return issues.reduce((acc, i) => acc + i.revenueLossEstimate, 0);
 }
 
 function scoreToGrade(score: number): string {
@@ -58,61 +52,6 @@ function categorySummary(issues: AuditIssue[]): Record<IssueCategory, number> {
   };
   for (const issue of issues) summary[issue.category]++;
   return summary;
-}
-
-// Rounds to a "nice" figure so ranges read like an estimate, not a fake-precise number.
-function roundNice(n: number): number {
-  if (n < 1000) return Math.round(n / 50) * 50;
-  if (n < 10000) return Math.round(n / 100) * 100;
-  return Math.round(n / 1000) * 1000;
-}
-
-function calcRevenueOpportunity(issues: AuditIssue[], score: number, annualLoss: number): RevenueOpportunity {
-  const deficit = 100 - score;
-
-  const conversionLiftLow = Math.max(2, Math.round(deficit * 0.25));
-  const conversionLiftHigh = Math.max(conversionLiftLow + 3, Math.round(deficit * 0.47));
-
-  const monthlyMidpoint = annualLoss / 12;
-  const monthlyLossLow = roundNice(monthlyMidpoint * 0.65);
-  const monthlyLossHigh = roundNice(monthlyMidpoint * 1.55);
-
-  const FACTOR_LABEL: Record<IssueCategory, string> = {
-    UX: "Product discovery & navigation friction",
-    Trust: "Trust signal gaps",
-    Performance: "Mobile & speed inefficiencies",
-    SEO: "Search visibility gaps",
-    Conversion: "Purchase flow friction",
-  };
-
-  const lossByCategory = issues.reduce<Record<string, number>>((acc, i) => {
-    acc[i.category] = (acc[i.category] ?? 0) + i.revenueLossEstimate;
-    return acc;
-  }, {});
-
-  const contributingFactors = Object.entries(lossByCategory)
-    .sort((a, b) => b[1] - a[1])
-    .map(([category]) => FACTOR_LABEL[category as IssueCategory]);
-
-  return {
-    conversionLiftLow,
-    conversionLiftHigh,
-    monthlyLossLow,
-    monthlyLossHigh,
-    annualLossLow: monthlyLossLow * 12,
-    annualLossHigh: monthlyLossHigh * 12,
-    contributingFactors,
-  };
-}
-
-function calcSignalSummary(issues: AuditIssue[]): SignalSummary[] {
-  const counts = new Map<ConversionSignal, number>();
-  for (const issue of issues) {
-    counts.set(issue.signal, (counts.get(issue.signal) ?? 0) + 1);
-  }
-  return [...counts.entries()]
-    .map(([signal, issueCount]) => ({ signal, issueCount }))
-    .sort((a, b) => b.issueCount - a.issueCount);
 }
 
 // Tries a direct product link from the homepage first, then falls back to one
@@ -189,11 +128,15 @@ export async function runFullScan(url: string): Promise<{ teaser: TeaserResults;
     ].sort((a, b) => SEVERITY_WEIGHT[b.severity] - SEVERITY_WEIGHT[a.severity]);
 
     const overallScore = calcScore(allIssues);
-    const revenueLoss = calcRevenueLoss(allIssues);
     const grade = scoreToGrade(overallScore);
     const summary = categorySummary(allIssues);
-    const revenueOpportunity = calcRevenueOpportunity(allIssues, overallScore, revenueLoss);
-    const signalSummary = calcSignalSummary(allIssues);
+    const metrics = computeMetricResults(allIssues, {
+      productPageScanned: Boolean(productPageUrl),
+      pageSpeedAvailable: Boolean(psResult),
+    });
+    const highImpactCount = allIssues.filter(
+      (i) => i.severity === "critical" || i.severity === "high"
+    ).length;
 
     const pageSpeed = {
       mobileScore: psResult?.mobileScore ?? 0,
@@ -202,18 +145,11 @@ export async function runFullScan(url: string): Promise<{ teaser: TeaserResults;
 
     const teaser: TeaserResults = {
       overallScore,
-      revenueLoss,
       grade,
       industry,
-      // Placeholder until the caller merges in a real industry benchmark
-      // (see lib/scanner/benchmark.ts) — kept here so the shape is always valid.
-      industryAvgScore: INDUSTRY_AVG_SCORE,
-      topBrandScore: TOP_BRAND_SCORE,
-      benchmarkSampleSize: 0,
-      benchmarkIsFallback: true,
-      revenueOpportunity,
-      assumedMonthlyRevenue: ASSUMED_MONTHLY_REVENUE,
-      signalSummary,
+      benchmark: PLACEHOLDER_BENCHMARK,
+      revenueOpportunity: { hasEstimate: false, highImpactCount },
+      metrics,
       issues: allIssues.slice(0, 3),
       totalIssueCount: allIssues.length,
       categorySummary: summary,
@@ -224,25 +160,9 @@ export async function runFullScan(url: string): Promise<{ teaser: TeaserResults;
     };
 
     const full: FullResults = {
-      overallScore,
-      revenueLoss,
-      grade,
-      industry,
-      industryAvgScore: INDUSTRY_AVG_SCORE,
-      topBrandScore: TOP_BRAND_SCORE,
-      benchmarkSampleSize: 0,
-      benchmarkIsFallback: true,
-      revenueOpportunity,
-      assumedMonthlyRevenue: ASSUMED_MONTHLY_REVENUE,
-      signalSummary,
+      ...teaser,
       issues: allIssues,
-      totalIssueCount: allIssues.length,
-      categorySummary: summary,
-      pageSpeed,
-      screenshotUrl: page.screenshotDataUrl,
-      productPageScanned: Boolean(productPageUrl),
-      productPageUrl,
-      recommendations: generateRecommendations(allIssues),
+      recommendations: generateRecommendations(allIssues, metrics),
       pageUrl: url,
       scannedAt: new Date().toISOString(),
     };
@@ -253,28 +173,32 @@ export async function runFullScan(url: string): Promise<{ teaser: TeaserResults;
   }
 }
 
-function generateRecommendations(issues: AuditIssue[]): string[] {
+function generateRecommendations(
+  issues: AuditIssue[],
+  metrics: TeaserResults["metrics"]
+): string[] {
   const criticals = issues.filter((i) => i.severity === "critical");
   const highs = issues.filter((i) => i.severity === "high");
 
   const recs: string[] = [];
 
   if (criticals.length > 0) {
-    recs.push(`Fix ${criticals.length} critical issue${criticals.length > 1 ? "s" : ""} first — these are costing you the most revenue.`);
+    recs.push(
+      `Fix ${criticals.length} critical issue${criticals.length > 1 ? "s" : ""} first — these carry the highest business impact.`
+    );
   }
   if (highs.length > 0) {
-    recs.push(`Address ${highs.length} high-priority issue${highs.length > 1 ? "s" : ""} to significantly improve conversion rates.`);
+    recs.push(
+      `Address ${highs.length} high-priority issue${highs.length > 1 ? "s" : ""} to strengthen the weakest parts of your experience.`
+    );
   }
 
-  const topByCategory = Object.entries(
-    issues.reduce<Record<string, number>>((acc, i) => {
-      acc[i.category] = (acc[i.category] ?? 0) + i.revenueLossEstimate;
-      return acc;
-    }, {})
-  ).sort((a, b) => b[1] - a[1]);
+  const weakestEvaluated = metrics
+    .filter((m) => m.evaluated && m.score !== null)
+    .sort((a, b) => (a.score ?? 0) - (b.score ?? 0))[0];
 
-  if (topByCategory[0]) {
-    recs.push(`Your biggest revenue leak is in ${topByCategory[0][0]} — estimated $${topByCategory[0][1].toLocaleString()}/year.`);
+  if (weakestEvaluated) {
+    recs.push(`Your lowest-scoring area is ${weakestEvaluated.metric} (${weakestEvaluated.score}/100) — start there.`);
   }
 
   return recs;

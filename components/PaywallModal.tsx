@@ -5,12 +5,12 @@ import { X, CheckCircle, Lock } from "lucide-react";
 
 interface Props {
   scanId: string;
-  revenueLoss: number;
+  highImpactCount: number;
   totalIssues: number;
   onClose: () => void;
 }
 
-export default function PaywallModal({ scanId, revenueLoss, totalIssues, onClose }: Props) {
+export default function PaywallModal({ scanId, highImpactCount, totalIssues, onClose }: Props) {
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -70,8 +70,11 @@ export default function PaywallModal({ scanId, revenueLoss, totalIssues, onClose
             Unlock Your Full Report
           </h2>
           <p className="text-neutral-400 text-sm">
-            {totalIssues} insights found · Est.{" "}
-            <strong className="text-red-400">${revenueLoss.toLocaleString()}/yr</strong> leaking
+            {totalIssues} findings detected ·{" "}
+            <strong className="text-red-400">
+              {highImpactCount} high-impact
+            </strong>{" "}
+            opportunit{highImpactCount === 1 ? "y" : "ies"}
           </p>
         </div>
 
@@ -82,9 +85,9 @@ export default function PaywallModal({ scanId, revenueLoss, totalIssues, onClose
           </p>
           <ul className="flex flex-col gap-2">
             {[
-              `All ${totalIssues} insights with full behavioral breakdowns`,
-              "Step-by-step fix instructions for every issue",
-              "Revenue impact estimate per issue",
+              `All ${totalIssues} findings with full evidence and behavioral context`,
+              "Step-by-step recommendations for every finding",
+              "Full Business Impact Area breakdown",
               "Priority recommendations ranked by impact",
               "Shareable report link",
             ].map((item) => (

@@ -35,16 +35,10 @@ export async function POST(req: NextRequest) {
   after(async () => {
     try {
       const { teaser, full } = await runFullScan(url);
-      const benchmark = await getIndustryBenchmark(teaser.industry);
+      const benchmark = await getIndustryBenchmark(teaser.industry, teaser.overallScore);
 
-      teaser.industryAvgScore = benchmark.avgScore;
-      teaser.topBrandScore = benchmark.topScore;
-      teaser.benchmarkSampleSize = benchmark.sampleSize;
-      teaser.benchmarkIsFallback = benchmark.isFallback;
-      full.industryAvgScore = benchmark.avgScore;
-      full.topBrandScore = benchmark.topScore;
-      full.benchmarkSampleSize = benchmark.sampleSize;
-      full.benchmarkIsFallback = benchmark.isFallback;
+      teaser.benchmark = benchmark;
+      full.benchmark = benchmark;
 
       await prisma.scan.update({
         where: { id: scan.id },
@@ -53,7 +47,11 @@ export async function POST(req: NextRequest) {
           teaserResults: teaser as object,
           fullResults: full as object,
           overallScore: teaser.overallScore,
-          revenueLoss: teaser.revenueLoss,
+          // No server-computed dollar figure exists anymore — see the data
+          // model rework notes in lib/scanner/revenue.ts. A directional
+          // estimate only exists once the visitor supplies their real
+          // revenue, which happens client-side and isn't persisted here.
+          revenueLoss: null,
           industry: teaser.industry,
         },
       });

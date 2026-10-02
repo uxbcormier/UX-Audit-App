@@ -1,6 +1,6 @@
 import type { ScrapedPage } from "../scraper";
 import type { AuditIssue } from "../types";
-import { estimateAnnualRevenueLoss } from "../revenue";
+import { cite } from "../research";
 
 export function runTrustChecks(page: ScrapedPage): AuditIssue[] {
   const issues: AuditIssue[] = [];
@@ -14,18 +14,25 @@ export function runTrustChecks(page: ScrapedPage): AuditIssue[] {
     issues.push({
       id: "trust-no-badges",
       category: "Trust",
-      signal: "Trust Reinforcement",
+      metric: "Trust Coverage",
       severity: "high",
       title: "No trust badges or payment icons on the homepage",
       observation: "No security badges, guarantee seals, or payment method icons were detected on the homepage.",
+      evidence: {
+        type: "element-presence",
+        detail: "No payment-method names (Visa, Mastercard, PayPal, Amex) or security/guarantee language found on the homepage.",
+        value: 0,
+      },
       behavioralExplanation:
         "Shoppers forming a first impression of a store look for visible signs it's a legitimate, established business before they explore further; finding none reads as a risk signal, not a neutral absence.",
-      businessImplication: "Weaker first-impression trust means more visitors bounce before ever reaching a product page or checkout.",
-      estimatedImpact: "+3–6% checkout completion",
-      fix: "Add payment method icons (Visa, Mastercard, PayPal) and a security or guarantee badge near the top of your homepage, and carry them through to checkout.",
-      revenueLossEstimate: estimateAnnualRevenueLoss(3, 6),
-      confidence: "medium",
+      businessImplication: "Weaker first-impression trust can mean more visitors bounce before ever reaching a product page or checkout.",
+      businessImpact: "medium",
+      confidence: 70,
       effort: "low",
+      recommendation:
+        "Add payment method icons (Visa, Mastercard, PayPal) and a security or guarantee badge near the top of your homepage, and carry them through to checkout.",
+      sourceLabel: "research-supported",
+      researchContext: cite("trustSignalsGeneral"),
     });
   }
 
@@ -38,87 +45,106 @@ export function runTrustChecks(page: ScrapedPage): AuditIssue[] {
     issues.push({
       id: "trust-no-reviews",
       category: "Trust",
-      signal: "Trust Reinforcement",
+      metric: "Trust Coverage",
       severity: "high",
       title: "No customer reviews or social proof detected",
       observation: "No ratings, reviews, or testimonials appear on the homepage.",
+      evidence: {
+        type: "element-presence",
+        detail: "No review, rating, or testimonial keywords or related class names found on the homepage.",
+        value: 0,
+      },
       behavioralExplanation:
         "Without proof other people bought and were satisfied, shoppers have only the brand's own claims to go on — which carries far less weight.",
-      businessImplication: "Roughly 9 in 10 shoppers read reviews before buying; their absence directly weakens purchase confidence.",
-      estimatedImpact: "+4–6% conversion",
-      fix: "Add a reviews section or star ratings on your homepage and product pages.",
-      revenueLossEstimate: estimateAnnualRevenueLoss(4, 6),
-      confidence: "medium",
+      businessImplication: "Most shoppers read reviews before buying; their absence can weaken purchase confidence.",
+      businessImpact: "medium",
+      confidence: 70,
       effort: "medium",
+      recommendation: "Add a reviews section or star ratings on your homepage and product pages.",
+      sourceLabel: "research-supported",
+      researchContext: cite("trustSignalsGeneral"),
     });
   }
 
   // Return / refund policy
-  const hasReturnPolicy =
-    /return policy|refund|money.back guarantee|free returns|hassle.free/i.test(html);
+  const hasReturnPolicy = /return policy|refund|money.back guarantee|free returns|hassle.free/i.test(html);
 
   if (!hasReturnPolicy) {
     issues.push({
       id: "trust-no-return-policy",
       category: "Trust",
-      signal: "Trust Reinforcement",
+      metric: "Trust Coverage",
       severity: "warning",
       title: "Return policy not visible on homepage",
       observation: "No mention of a return or refund policy appears on the main page.",
+      evidence: {
+        type: "element-presence",
+        detail: "No return/refund policy language found on the homepage.",
+        value: 0,
+      },
       behavioralExplanation:
         "Shoppers weighing a purchase they can't physically inspect first treat an unclear return path as added risk, and risk suppresses intent to buy.",
-      businessImplication: "Clear return terms measurably increase willingness to complete a purchase.",
-      estimatedImpact: "+2–4% conversion",
-      fix: "Add a return policy callout ('Free 30-day returns') near the CTA or in the header.",
-      revenueLossEstimate: estimateAnnualRevenueLoss(2, 4),
-      confidence: "medium",
+      businessImplication: "Clear return terms can increase willingness to complete a purchase.",
+      businessImpact: "medium",
+      confidence: 75,
       effort: "low",
+      recommendation: "Add a return policy callout ('Free 30-day returns') near the CTA or in the header.",
+      sourceLabel: "research-supported",
+      researchContext: cite("baymardCheckout"),
     });
   }
 
   // Privacy policy link
-  const hasPrivacy =
-    $('a[href*="privacy"]').length > 0 || /privacy policy/i.test(html);
+  const hasPrivacy = $('a[href*="privacy"]').length > 0 || /privacy policy/i.test(html);
 
   if (!hasPrivacy) {
     issues.push({
       id: "trust-no-privacy",
       category: "Trust",
-      signal: "Trust Reinforcement",
+      metric: "Trust Coverage",
       severity: "warning",
       title: "No privacy policy link found",
       observation: "No privacy policy link was found in the page.",
+      evidence: {
+        type: "element-presence",
+        detail: "No link to a privacy policy and no 'privacy policy' text found.",
+        value: 0,
+      },
       behavioralExplanation:
         "Privacy-conscious shoppers look for this link as a baseline legitimacy check before entering personal or payment data.",
       businessImplication: "Missing privacy policies can also block ad accounts and create compliance exposure under GDPR/CCPA.",
-      estimatedImpact: "+0.5–1.5% checkout completion",
-      fix: "Add a privacy policy link to your footer and ensure it covers data collection.",
-      revenueLossEstimate: estimateAnnualRevenueLoss(0.5, 1.5),
-      confidence: "high",
+      businessImpact: "low",
+      confidence: 85,
       effort: "low",
+      recommendation: "Add a privacy policy link to your footer and ensure it covers data collection.",
+      sourceLabel: "internal-heuristic",
     });
   }
 
   // About page
-  const hasAbout =
-    $('a[href*="about"]').length > 0 || /about us|our story|who we are/i.test(html);
+  const hasAbout = $('a[href*="about"]').length > 0 || /about us|our story|who we are/i.test(html);
 
   if (!hasAbout) {
     issues.push({
       id: "trust-no-about",
       category: "Trust",
-      signal: "Trust Reinforcement",
+      metric: "Trust Coverage",
       severity: "low",
       title: "No 'About Us' link found",
       observation: "No About page or brand story link was found in navigation or footer.",
+      evidence: {
+        type: "element-presence",
+        detail: "No About/brand-story link or language found in navigation or footer.",
+        value: 0,
+      },
       behavioralExplanation:
         "First-time visitors size up whether a brand is real before buying from it, and an About page is often the page they check.",
-      businessImplication: "Brand story pages build credibility that measurably lifts conversion for unfamiliar shoppers.",
-      estimatedImpact: "+0.5–1% conversion",
-      fix: "Add an 'About Us' page link in your navigation or footer.",
-      revenueLossEstimate: estimateAnnualRevenueLoss(0.5, 1),
-      confidence: "medium",
+      businessImplication: "Brand story pages can build credibility that lifts conversion for unfamiliar shoppers.",
+      businessImpact: "low",
+      confidence: 80,
       effort: "low",
+      recommendation: "Add an 'About Us' page link in your navigation or footer.",
+      sourceLabel: "internal-heuristic",
     });
   }
 

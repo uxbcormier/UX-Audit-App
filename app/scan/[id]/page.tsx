@@ -6,18 +6,20 @@ import {
   AlertTriangle,
   CheckCircle,
   Lock,
-  TrendingDown,
   TrendingUp,
   Zap,
   Search,
   Shield,
   Star,
   ArrowLeft,
+  BadgeCheck,
+  BookOpen,
+  Lightbulb,
 } from "lucide-react";
 import Link from "next/link";
-import type { TeaserResults, FullResults, AuditIssue, ConversionSignal } from "@/lib/scanner/types";
+import type { TeaserResults, FullResults, AuditIssue, ProprietaryMetric, SourceLabel } from "@/lib/scanner/types";
 import { derivePriority } from "@/lib/scanner/priority";
-import { ASSUMED_MONTHLY_REVENUE } from "@/lib/scanner/revenue";
+import { computeDirectionalRevenueEstimate } from "@/lib/scanner/revenue";
 import PaywallModal from "@/components/PaywallModal";
 
 interface ScanData {
@@ -25,7 +27,6 @@ interface ScanData {
   url: string;
   status: "PENDING" | "RUNNING" | "COMPLETE" | "FAILED";
   overallScore: number | null;
-  revenueLoss: number | null;
   teaserResults: TeaserResults | null;
   fullResults: FullResults | null;
   isPaid: boolean;
@@ -37,16 +38,19 @@ const CATEGORY_ICON: Record<string, React.ReactNode> = {
   UX: <Star size={14} />,
   Trust: <Shield size={14} />,
   Performance: <Zap size={14} />,
-  Conversion: <TrendingDown size={14} />,
+  Conversion: <TrendingUp size={14} />,
 };
 
-const SIGNAL_LABEL: Record<ConversionSignal, string> = {
-  "Time-to-Product": "Time-to-product friction",
-  "Add-to-Cart Friction": "Add-to-cart visibility risk",
-  "Trust Reinforcement": "Trust signal gaps",
-  "Mobile Complexity": "Mobile interaction inefficiencies",
-  "Search Visibility": "Search visibility gaps",
-};
+const METRIC_ORDER: ProprietaryMetric[] = [
+  "Product Discovery Friction",
+  "PDP Purchase Readiness",
+  "Checkout Friction",
+  "Mobile Friction",
+  "Trust Coverage",
+  "Decision Complexity",
+  "Performance Risk",
+  "Search Experience",
+];
 
 const SEVERITY_COLOR: Record<string, string> = {
   critical: "bg-red-950/50 text-red-300 border-red-900/60",
@@ -68,60 +72,131 @@ const EFFORT_LABEL: Record<string, string> = {
   high: "High effort",
 };
 
+const BUSINESS_IMPACT_COLOR: Record<string, string> = {
+  high: "text-red-300",
+  medium: "text-orange-300",
+  low: "text-neutral-400",
+};
+
+const SOURCE_LABEL_INFO: Record<SourceLabel, { text: string; icon: React.ReactNode; color: string }> = {
+  observed: {
+    text: "Observed on this site",
+    icon: <BadgeCheck size={11} />,
+    color: "bg-teal-950/40 text-teal-300 border-teal-900/50",
+  },
+  "research-supported": {
+    text: "Supported by UX research",
+    icon: <BookOpen size={11} />,
+    color: "bg-indigo-950/40 text-indigo-300 border-indigo-900/50",
+  },
+  "internal-heuristic": {
+    text: "Internal heuristic estimate",
+    icon: <Lightbulb size={11} />,
+    color: "bg-neutral-800/60 text-neutral-400 border-neutral-700",
+  },
+};
+
 function ScoreHero({
   score,
   industry,
-  industryAvgScore,
-  topBrandScore,
-  benchmarkSampleSize,
-  benchmarkIsFallback,
+  benchmark,
   totalIssueCount,
 }: {
   score: number;
   industry: string;
-  industryAvgScore: number;
-  topBrandScore: number;
-  benchmarkSampleSize: number;
-  benchmarkIsFallback: boolean;
+  benchmark: TeaserResults["benchmark"];
   totalIssueCount: number;
 }) {
-  const color =
-    score >= 80 ? "text-emerald-400" : score >= 60 ? "text-yellow-400" : "text-red-400";
+  const color = score >= 80 ? "text-emerald-400" : score >= 60 ? "text-yellow-400" : "text-red-400";
+  const hasRealSample = benchmark.sampleSize > 0;
 
   return (
     <div className="flex flex-col items-center sm:items-start text-center sm:text-left">
       <span className="text-7xl sm:text-8xl font-bold tracking-tight" style={{ lineHeight: 1 }}>
         <span className={color}>{score}</span>
       </span>
-      <span className="text-xs uppercase tracking-[0.2em] text-neutral-500 mt-2">
-        UX Score
-      </span>
+      <span className="text-xs uppercase tracking-[0.2em] text-neutral-500 mt-2">UX Score</span>
       <p className="text-sm text-neutral-400 mt-4 max-w-sm">
-        This score reflects lost conversion opportunities across your experience.
+        This score reflects severity-weighted evidence gaps across your experience — not a measured conversion rate.
       </p>
       <p className="text-xs text-neutral-500 mt-3">
-        {benchmarkIsFallback ? (
+        {hasRealSample ? (
           <>
-            Average ecommerce score: <span className="text-neutral-300">{industryAvgScore}</span>{" "}
-            · Top brands: <span className="text-neutral-300">{topBrandScore}+</span>
+            {industry} average: <span className="text-neutral-300">{benchmark.avgScore}</span>
+            {benchmark.medianScore !== null && (
+              <>
+                {" "}
+                · Median: <span className="text-neutral-300">{benchmark.medianScore}</span>
+              </>
+            )}{" "}
+            · Top quartile: <span className="text-neutral-300">{benchmark.topQuartileScore}+</span>
+            {benchmark.userPercentile !== null && (
+              <>
+                {" "}
+                · You&apos;re in the <span className="text-neutral-300">{benchmark.userPercentile}th percentile</span>
+              </>
+            )}{" "}
+            (from {benchmark.sampleSize} real {industry} scans)
           </>
         ) : (
           <>
-            {industry} average: <span className="text-neutral-300">{industryAvgScore}</span> (from{" "}
-            {benchmarkSampleSize} real {industry} scans) · Top quartile:{" "}
-            <span className="text-neutral-300">{topBrandScore}+</span>
+            Generic ecommerce baseline: <span className="text-neutral-300">{benchmark.avgScore}</span> avg ·{" "}
+            <span className="text-neutral-300">{benchmark.topQuartileScore}+</span> top brands
           </>
         )}
       </p>
-      <span className="inline-flex items-center gap-1.5 mt-5 text-xs font-medium text-teal-400 bg-teal-950/40 border border-teal-900/50 rounded-full px-3 py-1">
-        {totalIssueCount} insight{totalIssueCount !== 1 ? "s" : ""} detected
+      <span className="inline-flex items-center gap-1.5 mt-2 text-[10px] font-medium uppercase tracking-wide text-neutral-500 bg-neutral-900 border border-neutral-800 rounded-full px-2.5 py-0.5">
+        {benchmark.label}
       </span>
+      <span className="inline-flex items-center gap-1.5 mt-5 text-xs font-medium text-teal-400 bg-teal-950/40 border border-teal-900/50 rounded-full px-3 py-1">
+        {totalIssueCount} finding{totalIssueCount !== 1 ? "s" : ""} detected
+      </span>
+    </div>
+  );
+}
+
+function MetricsGrid({ metrics, locked }: { metrics: TeaserResults["metrics"]; locked: boolean }) {
+  const ordered = METRIC_ORDER.map((m) => metrics.find((r) => r.metric === m)).filter(
+    (m): m is TeaserResults["metrics"][number] => Boolean(m)
+  );
+
+  return (
+    <div className={`relative grid grid-cols-2 sm:grid-cols-4 gap-3 ${locked ? "select-none" : ""}`}>
+      {locked && (
+        <div className="absolute inset-0 z-10 rounded-xl backdrop-blur-sm bg-neutral-950/70 flex items-center justify-center">
+          <span className="text-sm text-neutral-400 flex items-center gap-1.5">
+            <Lock size={14} /> Full breakdown locked
+          </span>
+        </div>
+      )}
+      {ordered.map((m) => (
+        <div key={m.metric} className="bg-neutral-900 rounded-xl border border-neutral-800 p-4">
+          <p className="text-[11px] font-medium uppercase tracking-wide text-neutral-500 mb-1.5 leading-tight">
+            {m.metric}
+          </p>
+          {m.evaluated && m.score !== null ? (
+            <>
+              <span
+                className={`text-2xl font-bold ${
+                  m.score >= 80 ? "text-emerald-400" : m.score >= 60 ? "text-yellow-400" : "text-red-400"
+                }`}
+              >
+                {m.score}
+              </span>
+              <p className="text-[11px] text-neutral-500 mt-0.5">{m.evidenceNote}</p>
+            </>
+          ) : (
+            <p className="text-xs text-neutral-600 italic mt-1">{m.evidenceNote}</p>
+          )}
+        </div>
+      ))}
     </div>
   );
 }
 
 function IssueCard({ issue, blurred }: { issue: AuditIssue; blurred?: boolean }) {
   const priority = derivePriority(issue);
+  const sourceInfo = SOURCE_LABEL_INFO[issue.sourceLabel];
 
   return (
     <div
@@ -136,39 +211,62 @@ function IssueCard({ issue, blurred }: { issue: AuditIssue; blurred?: boolean })
       <div className="flex items-start justify-between gap-3 mb-2">
         <div className="flex items-center gap-2 flex-1">
           <span className="opacity-60">{CATEGORY_ICON[issue.category]}</span>
-          <span className="text-xs font-medium uppercase tracking-wide opacity-70">
-            {issue.category}
-          </span>
+          <span className="text-xs font-medium uppercase tracking-wide opacity-70">{issue.metric}</span>
         </div>
-        <span className="text-xs font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full border">
+        <span className="text-xs font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full border shrink-0">
           {issue.severity}
         </span>
       </div>
       <h3 className="font-semibold text-neutral-100 mb-2">{issue.title}</h3>
-      <div className="flex items-center gap-2 mb-2">
+      <div className="flex flex-wrap items-center gap-2 mb-3">
         <span
           className={`text-[10px] font-medium uppercase tracking-wide px-2 py-0.5 rounded-full border ${PRIORITY_COLOR[priority]}`}
         >
           {priority}
         </span>
-        <span className="text-[10px] text-neutral-500">
-          {issue.confidence === "high" ? "High" : "Medium"} confidence ·{" "}
-          {EFFORT_LABEL[issue.effort]}
+        <span
+          className={`inline-flex items-center gap-1 text-[10px] font-medium uppercase tracking-wide px-2 py-0.5 rounded-full border ${sourceInfo.color}`}
+        >
+          {sourceInfo.icon}
+          {sourceInfo.text}
         </span>
       </div>
       {!blurred && (
-        <div className="flex flex-col gap-1.5 text-sm text-neutral-300">
+        <div className="flex flex-col gap-2 text-sm text-neutral-300">
           <p>{issue.observation}</p>
+          <div className="bg-black/20 border border-white/5 rounded-lg px-3 py-2">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-neutral-500 mb-1">Evidence</p>
+            <p className="text-xs text-neutral-400">{issue.evidence.detail}</p>
+          </div>
           <p className="text-neutral-400">{issue.behavioralExplanation}</p>
           <p className="text-neutral-400">{issue.businessImplication}</p>
+          {issue.researchContext && issue.researchContext.length > 0 && (
+            <div className="flex flex-col gap-1.5 mt-1">
+              {issue.researchContext.map((r, i) => (
+                <p key={i} className="text-xs text-neutral-500 border-l-2 border-neutral-700 pl-2">
+                  <span className="text-neutral-400 font-medium">
+                    {r.source} — {r.title}:
+                  </span>{" "}
+                  {r.summary}
+                </p>
+              ))}
+            </div>
+          )}
         </div>
       )}
-      <p className="text-sm font-medium text-teal-400 mt-3">
-        Estimated impact: {issue.estimatedImpact}
-      </p>
+      <div className="flex items-center gap-3 mt-3 text-xs">
+        <span className={`font-medium ${BUSINESS_IMPACT_COLOR[issue.businessImpact]}`}>
+          {issue.businessImpact.charAt(0).toUpperCase() + issue.businessImpact.slice(1)} business impact
+        </span>
+        <span className="text-neutral-600">·</span>
+        <span className="text-neutral-500">{issue.confidence}% confidence</span>
+        <span className="text-neutral-600">·</span>
+        <span className="text-neutral-500">{EFFORT_LABEL[issue.effort]}</span>
+      </div>
       {!blurred && (
-        <p className="text-sm mt-2 text-neutral-300 border-t border-white/10 pt-2">
-          Fix: {issue.fix}
+        <p className="text-sm mt-3 text-neutral-300 border-t border-white/10 pt-2">
+          <span className="text-teal-400 font-medium">Recommendation: </span>
+          {issue.recommendation}
         </p>
       )}
     </div>
@@ -232,14 +330,13 @@ export default function ScanPage() {
   const full = scan.fullResults;
   const results = full ?? teaser;
 
-  // Every dollar figure below is derived from an assumed monthly revenue
-  // baseline (see lib/scanner/revenue.ts) until the visitor enters their
-  // real number, at which point we rescale linearly against that baseline.
-  const assumedMonthlyRevenue = results?.assumedMonthlyRevenue ?? ASSUMED_MONTHLY_REVENUE;
   const parsedUserRevenue = Number(userMonthlyRevenue.replace(/[^0-9.]/g, ""));
-  const isPersonalized = parsedUserRevenue > 0;
-  const revenueMultiplier = isPersonalized ? parsedUserRevenue / assumedMonthlyRevenue : 1;
-  const personalizedRevenueLoss = Math.round((scan.revenueLoss ?? 0) * revenueMultiplier);
+  const hasUserRevenue = parsedUserRevenue > 0;
+  const directionalEstimate =
+    hasUserRevenue && results
+      ? computeDirectionalRevenueEstimate(results.overallScore, parsedUserRevenue)
+      : null;
+  const highImpactCount = results?.revenueOpportunity.highImpactCount ?? 0;
 
   return (
     <main className="min-h-screen bg-neutral-950">
@@ -252,9 +349,7 @@ export default function ScanPage() {
           <span className="font-bold text-lg text-neutral-100">
             UX<span className="text-teal-400">Audit</span>
           </span>
-          <span className="text-sm text-neutral-500 ml-auto truncate max-w-xs">
-            {scan.url}
-          </span>
+          <span className="text-sm text-neutral-500 ml-auto truncate max-w-xs">{scan.url}</span>
         </div>
       </nav>
 
@@ -263,12 +358,9 @@ export default function ScanPage() {
         {isRunning && (
           <div className="text-center py-24">
             <div className="w-16 h-16 border-4 border-teal-500 border-t-transparent rounded-full animate-spin mx-auto mb-6" />
-            <h2 className="text-2xl font-bold text-neutral-100 mb-2">
-              Scanning your store…
-            </h2>
+            <h2 className="text-2xl font-bold text-neutral-100 mb-2">Scanning your store…</h2>
             <p className="text-neutral-500">
-              Checking performance, SEO, UX, and trust signals. This takes about
-              30–60 seconds.
+              Checking performance, SEO, UX, and trust signals. This takes about 30–60 seconds.
             </p>
           </div>
         )}
@@ -277,20 +369,17 @@ export default function ScanPage() {
         {isFailed && (
           <div className="text-center py-24 max-w-lg mx-auto">
             <AlertTriangle size={48} className="text-red-400 mx-auto mb-4" />
-            <h2 className="text-2xl font-bold text-neutral-100 mb-2">
-              Scan failed
-            </h2>
+            <h2 className="text-2xl font-bold text-neutral-100 mb-2">Scan failed</h2>
             {scan.failureReason === "blocked" ? (
               <>
                 <p className="text-neutral-500 mb-4">
-                  {scan.url} appears to have bot protection enabled (services
-                  like Cloudflare or Akamai), which is blocking our scanner.
+                  {scan.url} appears to have bot protection enabled (services like Cloudflare or
+                  Akamai), which is blocking our scanner.
                 </p>
                 <div className="text-left bg-neutral-900 border border-neutral-800 rounded-xl p-4 mb-6 text-sm text-neutral-400">
                   <p className="mb-2">
-                    If this is your site, ask whoever manages your hosting or
-                    security settings to allowlist our scanner by its
-                    user-agent:
+                    If this is your site, ask whoever manages your hosting or security settings to
+                    allowlist our scanner by its user-agent:
                   </p>
                   <code className="block bg-neutral-950 border border-neutral-800 rounded-lg px-3 py-2 text-teal-400 text-xs break-all">
                     UXAuditBot/1.0
@@ -299,20 +388,18 @@ export default function ScanPage() {
               </>
             ) : scan.failureReason === "empty" ? (
               <p className="text-neutral-500 mb-6">
-                {scan.url} came back with almost no visible content, which
-                usually means the page renders entirely via JavaScript that
-                our scanner can&apos;t execute.
+                {scan.url} came back with almost no visible content, which usually means the page
+                renders entirely via JavaScript that our scanner can&apos;t execute.
               </p>
             ) : scan.failureReason === "timeout" ? (
               <p className="text-neutral-500 mb-6">
-                This scan took longer than expected and was stopped. This is
-                usually a temporary issue — try again in a moment.
+                This scan took longer than expected and was stopped. This is usually a temporary
+                issue — try again in a moment.
               </p>
             ) : (
               <p className="text-neutral-500 mb-6">
-                We couldn&apos;t get a reliable read of {scan.url}. The site may be
-                blocking automated tools, or the URL might not be reachable —
-                double-check it and try again.
+                We couldn&apos;t get a reliable read of {scan.url}. The site may be blocking
+                automated tools, or the URL might not be reachable — double-check it and try again.
               </p>
             )}
             <Link
@@ -331,7 +418,7 @@ export default function ScanPage() {
             <div>
               <p className="font-semibold text-emerald-300">Payment successful!</p>
               <p className="text-sm text-emerald-400/80">
-                Your full audit is unlocked. All issues and fixes are visible below.
+                Your full audit is unlocked. All findings and recommendations are visible below.
               </p>
             </div>
           </div>
@@ -351,11 +438,7 @@ export default function ScanPage() {
                     <span className="text-xs text-neutral-500 ml-2 truncate">{scan.url}</span>
                   </div>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={results.screenshotUrl}
-                    alt={`Screenshot of ${scan.url}`}
-                    className="w-full block"
-                  />
+                  <img src={results.screenshotUrl} alt={`Screenshot of ${scan.url}`} className="w-full block" />
                 </div>
               )}
               <p className="text-xs text-neutral-500 mt-2">
@@ -368,10 +451,7 @@ export default function ScanPage() {
               <ScoreHero
                 score={results.overallScore}
                 industry={results.industry}
-                industryAvgScore={results.industryAvgScore}
-                topBrandScore={results.topBrandScore}
-                benchmarkSampleSize={results.benchmarkSampleSize}
-                benchmarkIsFallback={results.benchmarkIsFallback}
+                benchmark={results.benchmark}
                 totalIssueCount={results.totalIssueCount}
               />
             </section>
@@ -380,44 +460,50 @@ export default function ScanPage() {
             <section className="mb-16 border-t border-neutral-800 pt-12">
               <div className="flex items-center gap-2 text-teal-400 mb-4">
                 <TrendingUp size={16} />
-                <span className="text-xs font-semibold uppercase tracking-[0.15em]">
-                  Revenue Opportunity Detected
-                </span>
+                <span className="text-xs font-semibold uppercase tracking-[0.15em]">Revenue Opportunity Detected</span>
               </div>
 
-              <p className="text-3xl sm:text-4xl font-bold text-neutral-100 mb-1">
-                +{results.revenueOpportunity.conversionLiftLow}–
-                {results.revenueOpportunity.conversionLiftHigh}%
-              </p>
-              <p className="text-sm text-neutral-500 mb-8">Estimated conversion lift available</p>
+              {directionalEstimate ? (
+                <>
+                  <p className="text-3xl sm:text-4xl font-bold text-neutral-100 mb-1">
+                    +{directionalEstimate.conversionLiftLow}–{directionalEstimate.conversionLiftHigh}%
+                  </p>
+                  <p className="text-sm text-neutral-500 mb-8">Directional conversion lift range</p>
 
-              <p className="text-2xl sm:text-3xl font-bold text-red-400 mb-1">
-                ${Math.round(results.revenueOpportunity.monthlyLossLow * revenueMultiplier).toLocaleString()}–$
-                {Math.round(results.revenueOpportunity.monthlyLossHigh * revenueMultiplier).toLocaleString()}
-                <span className="text-base text-neutral-500 font-normal">/month</span>
-              </p>
-              <p className="text-sm text-neutral-500 mb-6">
-                Estimated revenue being left on the table — roughly $
-                {Math.round(results.revenueOpportunity.annualLossLow * revenueMultiplier).toLocaleString()}–$
-                {Math.round(results.revenueOpportunity.annualLossHigh * revenueMultiplier).toLocaleString()} annually
-              </p>
-
-              <p className="text-xs text-neutral-500 mb-4">
-                Based on: {results.revenueOpportunity.contributingFactors.join(" · ")}
-              </p>
+                  <p className="text-2xl sm:text-3xl font-bold text-red-400 mb-1">
+                    ${directionalEstimate.monthlyLossLow.toLocaleString()}–$
+                    {directionalEstimate.monthlyLossHigh.toLocaleString()}
+                    <span className="text-base text-neutral-500 font-normal">/month</span>
+                  </p>
+                  <p className="text-sm text-neutral-500 mb-4">
+                    Roughly ${directionalEstimate.annualLossLow.toLocaleString()}–$
+                    {directionalEstimate.annualLossHigh.toLocaleString()} annually, based on the $
+                    {directionalEstimate.monthlyRevenueInput.toLocaleString()}/month you entered.
+                  </p>
+                  <p className="text-xs text-neutral-500 mb-6 italic">{directionalEstimate.disclaimer}</p>
+                </>
+              ) : (
+                <>
+                  <p className="text-xl sm:text-2xl font-semibold text-neutral-100 mb-2 max-w-md">
+                    {highImpactCount} high-impact opportunit{highImpactCount === 1 ? "y" : "ies"} identified in this scan.
+                  </p>
+                  <p className="text-sm text-neutral-500 mb-6 max-w-md">
+                    The full report details every opportunity, ranked by business impact and effort
+                    to fix. Enter your monthly revenue below for a directional dollar estimate.
+                  </p>
+                </>
+              )}
 
               <div className="bg-neutral-900 border border-neutral-800 rounded-xl px-4 py-3 mb-4">
                 <p className="text-xs text-neutral-500 mb-2">
-                  {isPersonalized
-                    ? "Personalized using the monthly revenue you entered below."
-                    : `Assumes a $${assumedMonthlyRevenue.toLocaleString()}/month store, typical for a small ecommerce brand — enter your real number for a personalized estimate.`}
+                  Optional — we never store this, it only recalculates the range above in your browser.
                 </p>
                 <div className="flex items-center gap-2">
                   <span className="text-neutral-500 text-sm">$</span>
                   <input
                     type="text"
                     inputMode="numeric"
-                    placeholder={assumedMonthlyRevenue.toLocaleString()}
+                    placeholder="e.g. 50,000"
                     value={userMonthlyRevenue}
                     onChange={(e) => setUserMonthlyRevenue(e.target.value)}
                     className="flex-1 min-w-0 bg-neutral-950 border border-neutral-700 rounded-lg px-3 py-1.5 text-sm text-neutral-100 placeholder:text-neutral-600 focus:outline-none focus:ring-2 focus:ring-teal-500"
@@ -426,51 +512,39 @@ export default function ScanPage() {
                 </div>
               </div>
 
-              {scan.isPaid ? (
-                <p className="text-sm text-neutral-400 max-w-lg">
-                  This range is derived from the severity-weighted issues detected below,
-                  projected against typical ecommerce traffic and conversion benchmarks for
-                  a store at your audit score.
-                </p>
-              ) : (
+              {!scan.isPaid && (
                 <button
                   onClick={() => setShowPaywall(true)}
                   className="text-sm font-medium text-teal-400 hover:text-teal-300 inline-flex items-center gap-1"
                 >
-                  How this is calculated <Lock size={12} />
+                  See every opportunity <Lock size={12} />
                 </button>
               )}
             </section>
 
-            {/* 3. Conversion Signals */}
+            {/* 3. Business Impact Areas (proprietary metrics) */}
             <section className="mb-16 border-t border-neutral-800 pt-12">
-              <h2 className="text-xs font-semibold uppercase tracking-[0.15em] text-neutral-500 mb-5">
-                Conversion Signals Detected
+              <h2 className="text-xs font-semibold uppercase tracking-[0.15em] text-neutral-500 mb-1">
+                Business Impact Areas
               </h2>
-              <div className="flex flex-col gap-3">
-                {results.signalSummary.map(({ signal, issueCount }) => (
-                  <div key={signal} className="flex items-center justify-between py-2 border-b border-neutral-900">
-                    <span className="text-neutral-200 text-sm">{SIGNAL_LABEL[signal]}</span>
-                    <span className="text-xs text-neutral-500">
-                      {issueCount} signal{issueCount !== 1 ? "s" : ""}
-                    </span>
-                  </div>
-                ))}
-              </div>
+              <p className="text-xs text-neutral-600 mb-5">
+                Each score is derived only from evidence this scan could actually observe — areas we
+                couldn&apos;t assess (e.g. checkout, without a product page) are marked as such rather
+                than guessed.
+              </p>
+              <MetricsGrid metrics={results.metrics} locked={!scan.isPaid} />
             </section>
 
             {/* 4. High Impact Insights */}
             <section className="mb-12 border-t border-neutral-800 pt-12">
               <h2 className="text-xs font-semibold uppercase tracking-[0.15em] text-neutral-500 mb-5">
-                {scan.isPaid ? "All issues found" : "High Impact Insights"}
+                {scan.isPaid ? "All findings" : "High Impact Findings"}
               </h2>
 
               <div className="flex flex-col gap-4">
                 {scan.isPaid
                   ? results.issues.map((issue) => <IssueCard key={issue.id} issue={issue} />)
-                  : teaser?.issues.map((issue, i) => (
-                      <IssueCard key={issue.id} issue={issue} blurred={i === 2} />
-                    ))}
+                  : teaser?.issues.map((issue, i) => <IssueCard key={issue.id} issue={issue} blurred={i === 2} />)}
               </div>
             </section>
 
@@ -482,14 +556,14 @@ export default function ScanPage() {
                   You&apos;re leaving revenue on the table.
                 </h2>
                 <p className="text-neutral-400 mb-6 text-sm">
-                  {results.totalIssueCount} conversion insights detected. You&apos;ve only seen 2.
+                  {results.totalIssueCount} findings detected. You&apos;ve only seen 2.
                 </p>
                 <ul className="text-sm text-neutral-400 mb-8 flex flex-col gap-1.5 max-w-sm mx-auto text-left">
                   {[
-                    "Where users drop off",
-                    "What's causing hesitation",
-                    "What to fix first",
-                    "Which opportunities matter most",
+                    "Every finding with full evidence and research context",
+                    "Step-by-step recommendations for every issue",
+                    "Full Business Impact Area breakdown",
+                    "Priority ranking by impact and effort",
                   ].map((item) => (
                     <li key={item} className="flex items-start gap-2">
                       <CheckCircle size={15} className="text-teal-400 shrink-0 mt-0.5" />
@@ -509,10 +583,10 @@ export default function ScanPage() {
               </section>
             )}
 
-            {/* 6. Detailed analysis */}
+            {/* 6. Audit area breakdown */}
             <section className="border-t border-neutral-800 pt-12">
               <h2 className="text-xs font-semibold uppercase tracking-[0.15em] text-neutral-500 mb-5">
-                Full Conversion Signal Breakdown
+                Findings by Audit Area
               </h2>
 
               <div className={`relative grid grid-cols-2 sm:grid-cols-4 gap-4 ${!scan.isPaid ? "select-none" : ""}`}>
@@ -526,13 +600,8 @@ export default function ScanPage() {
                 {Object.entries(results.categorySummary)
                   .filter(([, count]) => count > 0)
                   .map(([cat, count]) => (
-                    <div
-                      key={cat}
-                      className="bg-neutral-900 rounded-xl border border-neutral-800 p-4 text-center"
-                    >
-                      <div className="flex justify-center mb-1 text-neutral-500">
-                        {CATEGORY_ICON[cat]}
-                      </div>
+                    <div key={cat} className="bg-neutral-900 rounded-xl border border-neutral-800 p-4 text-center">
+                      <div className="flex justify-center mb-1 text-neutral-500">{CATEGORY_ICON[cat]}</div>
                       <span className="text-2xl font-bold text-neutral-100">{count}</span>
                       <p className="text-xs text-neutral-500 mt-0.5">{cat}</p>
                     </div>
@@ -543,9 +612,7 @@ export default function ScanPage() {
             {/* Full report recommendations */}
             {scan.isPaid && full?.recommendations && full.recommendations.length > 0 && (
               <section className="bg-neutral-900 border border-neutral-800 rounded-2xl p-6 mt-10">
-                <h2 className="font-bold text-neutral-100 mb-4">
-                  Priority recommendations
-                </h2>
+                <h2 className="font-bold text-neutral-100 mb-4">Priority recommendations</h2>
                 <ul className="flex flex-col gap-2">
                   {full.recommendations.map((rec, i) => (
                     <li key={i} className="flex items-start gap-3 text-sm text-neutral-300">
@@ -564,7 +631,7 @@ export default function ScanPage() {
       {showPaywall && scan && (
         <PaywallModal
           scanId={scan.id}
-          revenueLoss={personalizedRevenueLoss}
+          highImpactCount={highImpactCount}
           totalIssues={scan.teaserResults?.totalIssueCount ?? 0}
           onClose={() => setShowPaywall(false)}
         />
