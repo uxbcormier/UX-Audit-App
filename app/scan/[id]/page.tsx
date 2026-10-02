@@ -553,7 +553,7 @@ export default function ScanPage() {
               <section className="mb-16 bg-neutral-900 border border-neutral-800 rounded-2xl p-8 sm:p-10 text-center">
                 <Lock size={28} className="mx-auto mb-4 text-teal-400" />
                 <h2 className="text-2xl sm:text-3xl font-bold text-neutral-100 mb-2">
-                  You&apos;re leaving revenue on the table.
+                  See the complete evidence-based audit.
                 </h2>
                 <p className="text-neutral-400 mb-6 text-sm">
                   {results.totalIssueCount} findings detected. You&apos;ve only seen 2.
