@@ -49,17 +49,29 @@ const USER_AGENT = "Mozilla/5.0 (compatible; UXAuditBot/1.0; +https://uxaudit.io
 // tells that would block us before that identity is even considered.
 const STEALTH_LAUNCH_ARGS = ["--disable-blink-features=AutomationControlled"];
 
-// `@sparticuz/chromium`'s bundled binary is built for Lambda-style Linux and
-// won't run on a developer's Mac/Windows machine, so production and local
-// dev launch the browser two different ways.
+// The full `@sparticuz/chromium` package bundles its ~67MB browser binary
+// inside node_modules, and Vercel's build repeatedly failed to carry that
+// binary into the deployed function (same underlying class of bug as the
+// playwright-core browsers.json issue above, just too large to work around
+// by bundling a copy into our own source tree). `chromium-min` ships no
+// binary at all — it downloads this exact matching release build to /tmp
+// on cold start instead, sidestepping the bundler/tracing problem
+// entirely. Only the first invocation after a cold start pays this
+// download cost; warm invocations reuse the extracted /tmp copy.
+const CHROMIUM_PACK_URL =
+  "https://github.com/Sparticuz/chromium/releases/download/v149.0.0/chromium-v149.0.0-pack.x64.tar";
+
+// `@sparticuz/chromium-min`'s resolved binary is built for Lambda-style
+// Linux and won't run on a developer's Mac/Windows machine, so production
+// and local dev launch the browser two different ways.
 async function launchBrowser(): Promise<Browser> {
   if (process.env.NODE_ENV === "production") {
     ensurePlaywrightBrowsersJsonFallback();
-    const chromium = (await import("@sparticuz/chromium")).default;
+    const chromium = (await import("@sparticuz/chromium-min")).default;
     const { chromium: playwrightChromium } = await import("playwright-core");
     return playwrightChromium.launch({
       args: [...chromium.args, ...STEALTH_LAUNCH_ARGS],
-      executablePath: await chromium.executablePath(),
+      executablePath: await chromium.executablePath(CHROMIUM_PACK_URL),
       headless: true,
     });
   }

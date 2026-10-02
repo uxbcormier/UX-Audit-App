@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  serverExternalPackages: ["cheerio", "playwright-core", "playwright", "@sparticuz/chromium"],
+  serverExternalPackages: ["cheerio", "playwright-core", "playwright", "@sparticuz/chromium-min"],
   // `serverExternalPackages` keeps playwright-core's code from being bundled,
   // but Vercel's file tracer still decides which of its files get shipped
   // to the deployed function — and it misses non-code assets like
