@@ -1,5 +1,6 @@
 import * as cheerio from "cheerio";
 import type { Browser, BrowserContext } from "playwright-core";
+import { ensurePlaywrightBrowsersJsonFallback } from "./playwrightBrowsersJsonFallback";
 
 export interface ScrapedPage {
   html: string;
@@ -53,6 +54,7 @@ const STEALTH_LAUNCH_ARGS = ["--disable-blink-features=AutomationControlled"];
 // dev launch the browser two different ways.
 async function launchBrowser(): Promise<Browser> {
   if (process.env.NODE_ENV === "production") {
+    ensurePlaywrightBrowsersJsonFallback();
     const chromium = (await import("@sparticuz/chromium")).default;
     const { chromium: playwrightChromium } = await import("playwright-core");
     return playwrightChromium.launch({
