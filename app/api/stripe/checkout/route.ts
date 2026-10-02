@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { getStripe, FULL_AUDIT_PRICE_CENTS } from "@/lib/stripe";
 import { prisma } from "@/lib/prisma";
+import { trimmedEnv } from "@/lib/env";
 
 const schema = z.object({
   scanId: z.string().min(1),
@@ -23,7 +24,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Scan not found" }, { status: 404 });
   }
 
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:3000";
+  const baseUrl = trimmedEnv("NEXT_PUBLIC_BASE_URL") ?? "http://localhost:3000";
 
   const session = await getStripe().checkout.sessions.create({
     mode: "payment",

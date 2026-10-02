@@ -1,10 +1,11 @@
 import { Resend } from "resend";
+import { trimmedEnv } from "./env";
 
 let resendClient: Resend | undefined;
 
 function getResend(): Resend {
   if (!resendClient) {
-    resendClient = new Resend(process.env.RESEND_API_KEY);
+    resendClient = new Resend(trimmedEnv("RESEND_API_KEY"));
   }
   return resendClient;
 }
@@ -19,7 +20,7 @@ export async function sendReportReadyEmail({
   reportUrl: string;
 }) {
   await getResend().emails.send({
-    from: process.env.EMAIL_FROM!,
+    from: trimmedEnv("EMAIL_FROM")!,
     to,
     subject: "Your full UX Audit report is ready",
     html: `

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getStripe } from "@/lib/stripe";
 import { prisma } from "@/lib/prisma";
 import { sendReportReadyEmail } from "@/lib/email";
+import { trimmedEnv } from "@/lib/env";
 
 export async function POST(req: NextRequest) {
   const body = await req.text();
@@ -15,7 +16,7 @@ export async function POST(req: NextRequest) {
   let event: any;
 
   try {
-    event = getStripe().webhooks.constructEvent(body, sig, process.env.STRIPE_WEBHOOK_SECRET!);
+    event = getStripe().webhooks.constructEvent(body, sig, trimmedEnv("STRIPE_WEBHOOK_SECRET")!);
   } catch (err) {
     console.error("Webhook signature verification failed:", err);
     return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
@@ -38,7 +39,7 @@ export async function POST(req: NextRequest) {
       if (email) {
         const scan = await prisma.scan.findUnique({ where: { id: scanId } });
         if (scan) {
-          const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:3000";
+          const baseUrl = trimmedEnv("NEXT_PUBLIC_BASE_URL") ?? "http://localhost:3000";
           await sendReportReadyEmail({
             to: email,
             scanUrl: scan.url,

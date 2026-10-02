@@ -1,3 +1,5 @@
+import { trimmedEnv } from "../env";
+
 export interface PageSpeedResult {
   performanceScore: number;
   lcp: number | null; // ms
@@ -17,7 +19,7 @@ export interface PageSpeedResult {
 const PAGESPEED_TIMEOUT_MS = 20_000;
 
 export async function runPageSpeed(url: string): Promise<PageSpeedResult> {
-  const apiKey = process.env.PAGESPEED_API_KEY;
+  const apiKey = trimmedEnv("PAGESPEED_API_KEY");
   const base = "https://www.googleapis.com/pagespeedonline/v5/runPagespeed";
 
   async function fetchStrategy(strategy: "mobile" | "desktop") {
