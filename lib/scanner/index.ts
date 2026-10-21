@@ -55,16 +55,21 @@ function categorySummary(issues: AuditIssue[]): Record<IssueCategory, number> {
 }
 
 // Tries a direct product link from the homepage first, then falls back to one
-// shop/collection-page hop to find one. Light scrape options (no network-idle
-// wait, no screenshot) keep a slow or unreachable secondary page from eating
-// the route's time budget. Any failure here is swallowed — a missing or
-// broken product page should never fail the whole scan.
+// shop/collection-page hop to find one. No screenshot is captured (not shown
+// for this page), which keeps a slow or unreachable secondary page from
+// eating much of the route's time budget. The network-idle wait IS kept,
+// though, capped at 5s by scrapeWithContext — many storefronts (Canada
+// Goose among them) render their PDP's "Add to Bag" button client-side via
+// React/Next.js after `domcontentloaded` fires, so skipping that wait was
+// capturing an incomplete DOM and producing false "no Add to Cart button"
+// findings on real, working product pages. Any failure here is swallowed —
+// a missing or broken product page should never fail the whole scan.
 async function scanProductPage(
   context: BrowserContext,
   homepage: ScrapedPage,
   baseUrl: string
 ): Promise<{ issues: AuditIssue[]; productPageUrl: string | null }> {
-  const lightOptions = { waitForNetworkIdle: false, captureScreenshot: false, navTimeoutMs: 8000 };
+  const lightOptions = { waitForNetworkIdle: true, captureScreenshot: false, navTimeoutMs: 10000 };
 
   try {
     let productUrl = findProductLink(homepage, baseUrl);
