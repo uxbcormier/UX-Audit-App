@@ -21,9 +21,19 @@ export function runUxChecks(page: ScrapedPage): AuditIssue[] {
   // names — sites use wildly different naming conventions for CTA styling
   // (e.g. Squarespace's "cta" vs. Bootstrap's "btn"), so the keyword match
   // on visible text is the reliable signal, not the class attribute.
+  // Whitespace is normalized before matching and the element selector
+  // extended beyond <a>/<button> — a label split across nested <span>s or
+  // implemented as a <div role="button"> would otherwise produce a false
+  // "not found" (see the identical fix in checks/product.ts for the bug
+  // this caught in production: a real "Add to Bag" button reported missing).
+  const normalizeText = (text: string) => text.replace(/\s+/g, " ").trim();
   const ctaKeywords = /buy|shop|add to cart|checkout|get started|order|purchase/i;
-  const buttons = $("a, button").get();
-  const ctaButtons = buttons.filter((el) => ctaKeywords.test($(el).text()));
+  const buttons = $('a, button, input[type="submit"], input[type="button"], [role="button"]').get();
+  const ctaButtons = buttons.filter((el) => {
+    const $el = $(el);
+    const label = normalizeText([$el.text(), $el.attr("aria-label") ?? "", $el.attr("value") ?? ""].join(" "));
+    return ctaKeywords.test(label);
+  });
 
   if (ctaButtons.length === 0) {
     issues.push({

@@ -21,9 +21,37 @@ export function runProductChecks(page: ScrapedPage, productUrl: string): AuditIs
   const issues: AuditIssue[] = [];
   const { $, html } = page;
 
-  const hasAddToCart = $("a, button")
-    .get()
-    .some((el) => ADD_TO_CART_PATTERN.test($(el).text()));
+  // Real storefronts often split a button's label across nested <span>
+  // elements for styling, so the concatenated .text() can come back as
+  // "Add\n          to\n          Bag" instead of "Add to Bag" — a literal
+  // single-space regex like ours would wrongly call that a miss. Collapse
+  // whitespace before matching so markup structure can't produce a false
+  // negative. Also check common non-<button>/<a> interactive patterns
+  // (role="button", <input type="submit">, custom elements with a "cart"/
+  // "bag"/"buy" class or attribute) and aria-label, since many component
+  // libraries hide the actual action text there instead of in visible text.
+  const normalize = (text: string) => text.replace(/\s+/g, " ").trim();
+
+  const candidateEls = $(
+    'a, button, input[type="submit"], input[type="button"], [role="button"], [class*="add-to-cart" i], [class*="add-to-bag" i], [data-testid*="add-to-cart" i], [data-testid*="add-to-bag" i]'
+  ).get();
+
+  const hasAddToCartElement = candidateEls.some((el) => {
+    const $el = $(el);
+    const label = normalize(
+      [$el.text(), $el.attr("aria-label") ?? "", $el.attr("value") ?? ""].join(" ")
+    );
+    return ADD_TO_CART_PATTERN.test(label);
+  });
+
+  // Last-resort fallback: if no matching element was found but the phrase
+  // genuinely appears on the page (normalized), treat it as present rather
+  // than claim a confirmed absence we can't actually stand behind — a
+  // structurally unusual button (framework-specific custom element we
+  // don't recognize) is far more likely than a product page that merely
+  // mentions "add to cart" without an action behind it.
+  const hasAddToCartInText = ADD_TO_CART_PATTERN.test(normalize($("body").text()));
+  const hasAddToCart = hasAddToCartElement || hasAddToCartInText;
 
   if (!hasAddToCart) {
     issues.push({
