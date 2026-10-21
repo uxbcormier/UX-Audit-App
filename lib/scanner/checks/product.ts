@@ -56,6 +56,22 @@ export function runProductChecks(page: ScrapedPage, productUrl: string): AuditIs
   const hasAddToCart = hasAddToCartElement || hasAddToCartInText;
 
   if (!hasAddToCart) {
+    // Temporary diagnostic: the regex/wait-timing fixes applied so far
+    // haven't resolved a real-world false negative on this exact check, so
+    // log what the scraper actually captured to find the true cause instead
+    // of guessing again. Safe to remove once the real cause is confirmed.
+    console.log(
+      JSON.stringify({
+        diagnostic: "product-no-cta",
+        productUrl,
+        candidateElCount: candidateEls.length,
+        bodyTextLength: text.length,
+        containsBagWord: /bag/i.test(text),
+        containsCartWord: /cart/i.test(text),
+        containsBuyWord: /buy/i.test(text),
+        bodyTextSample: text.slice(0, 4000),
+      })
+    );
     issues.push({
       id: "product-no-cta",
       category: "UX",
