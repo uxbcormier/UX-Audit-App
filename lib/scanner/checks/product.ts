@@ -1,6 +1,7 @@
 import type { ScrapedPage } from "../scraper";
 import type { AuditIssue } from "../types";
 import { cite } from "../research";
+import { normalizedBodyText } from "../normalize";
 
 const PRICE_PATTERN = /\$\s?\d[\d,]*(\.\d{2})?/g;
 const ADD_TO_CART_PATTERN = /add to (cart|bag|basket)|buy now/i;
@@ -19,7 +20,8 @@ export function looksLikeSingleProductPage(page: ScrapedPage): boolean {
 
 export function runProductChecks(page: ScrapedPage, productUrl: string): AuditIssue[] {
   const issues: AuditIssue[] = [];
-  const { $, html } = page;
+  const { $ } = page;
+  const text = normalizedBodyText(page);
 
   // Real storefronts often split a button's label across nested <span>
   // elements for styling, so the concatenated .text() can come back as
@@ -79,7 +81,7 @@ export function runProductChecks(page: ScrapedPage, productUrl: string): AuditIs
   }
 
   const hasReviews =
-    REVIEW_PATTERN.test(html) || $('[class*="review"], [class*="rating"], [class*="star"]').length > 0;
+    REVIEW_PATTERN.test(text) || $('[class*="review"], [class*="rating"], [class*="star"]').length > 0;
 
   if (!hasReviews) {
     issues.push({
@@ -106,7 +108,7 @@ export function runProductChecks(page: ScrapedPage, productUrl: string): AuditIs
     });
   }
 
-  const hasShippingInfo = SHIPPING_PATTERN.test(html);
+  const hasShippingInfo = SHIPPING_PATTERN.test(text);
   if (!hasShippingInfo) {
     issues.push({
       id: "product-no-shipping-info",

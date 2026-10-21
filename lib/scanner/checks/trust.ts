@@ -1,14 +1,16 @@
 import type { ScrapedPage } from "../scraper";
 import type { AuditIssue } from "../types";
 import { cite } from "../research";
+import { normalizedBodyText } from "../normalize";
 
 export function runTrustChecks(page: ScrapedPage): AuditIssue[] {
   const issues: AuditIssue[] = [];
-  const { html, $ } = page;
+  const { $ } = page;
+  const text = normalizedBodyText(page);
 
   // Trust badges / payment icons
   const hasTrustBadge =
-    /paypal|visa|mastercard|amex|secure checkout|ssl secured|money.back|guarantee|norton|mcafee|trustpilot/i.test(html);
+    /paypal|visa|mastercard|amex|secure checkout|ssl secured|money.back|guarantee|norton|mcafee|trustpilot/i.test(text);
 
   if (!hasTrustBadge) {
     issues.push({
@@ -38,7 +40,7 @@ export function runTrustChecks(page: ScrapedPage): AuditIssue[] {
 
   // Reviews / social proof
   const hasSocialProof =
-    /review|rating|stars|testimonial|customer|verified buyer|trustpilot|yotpo|judge\.me|stamped/i.test(html) ||
+    /review|rating|stars|testimonial|customer|verified buyer|trustpilot|yotpo|judge\.me|stamped/i.test(text) ||
     $('[class*="review"], [class*="rating"], [class*="star"]').length > 0;
 
   if (!hasSocialProof) {
@@ -67,7 +69,7 @@ export function runTrustChecks(page: ScrapedPage): AuditIssue[] {
   }
 
   // Return / refund policy
-  const hasReturnPolicy = /return policy|refund|money.back guarantee|free returns|hassle.free/i.test(html);
+  const hasReturnPolicy = /return policy|refund|money.back guarantee|free returns|hassle.free/i.test(text);
 
   if (!hasReturnPolicy) {
     issues.push({
@@ -95,7 +97,7 @@ export function runTrustChecks(page: ScrapedPage): AuditIssue[] {
   }
 
   // Privacy policy link
-  const hasPrivacy = $('a[href*="privacy"]').length > 0 || /privacy policy/i.test(html);
+  const hasPrivacy = $('a[href*="privacy"]').length > 0 || /privacy policy/i.test(text);
 
   if (!hasPrivacy) {
     issues.push({
@@ -122,7 +124,7 @@ export function runTrustChecks(page: ScrapedPage): AuditIssue[] {
   }
 
   // About page
-  const hasAbout = $('a[href*="about"]').length > 0 || /about us|our story|who we are/i.test(html);
+  const hasAbout = $('a[href*="about"]').length > 0 || /about us|our story|who we are/i.test(text);
 
   if (!hasAbout) {
     issues.push({
