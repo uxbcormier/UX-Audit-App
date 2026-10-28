@@ -2,6 +2,26 @@ import * as cheerio from "cheerio";
 import type { Browser, BrowserContext } from "playwright-core";
 import { ensurePlaywrightBrowsersJsonFallback } from "./playwrightBrowsersJsonFallback";
 
+// A single interactive element's REAL rendered state, read from inside the
+// live browser (via page.evaluate) rather than guessed from static HTML
+// attributes. This is what makes visibility/disabled detection trustworthy:
+// cheerio has no layout engine, so it can't know whether an element with no
+// inline `display:none` is actually on-screen (CSS from a stylesheet, a
+// parent's `overflow:hidden`, JS-toggled classes, etc. are all invisible to
+// it). Computed here, after the page has rendered, there's no guessing.
+export interface InteractiveElementEvidence {
+  tag: string;
+  text: string;
+  ariaLabel: string | null;
+  role: string | null;
+  type: string | null;
+  href: string | null;
+  disabled: boolean;
+  visible: boolean;
+  classes: string;
+  testId: string | null;
+}
+
 export interface ScrapedPage {
   html: string;
   $: ReturnType<typeof cheerio.load>;
@@ -17,6 +37,11 @@ export interface ScrapedPage {
   // Above-the-fold screenshot as a data URL, for display in the report.
   // Null if the capture failed or wasn't requested for this page.
   screenshotDataUrl: string | null;
+  // Real in-browser inventory of interactive elements, or null if the
+  // in-page evaluation itself failed (page navigated away, crashed, etc).
+  // Checks MUST treat null here as "this page's evidence is incomplete,"
+  // never as "no interactive elements exist" — those are different facts.
+  interactiveElements: InteractiveElementEvidence[] | null;
 }
 
 // Phrases that show up on bot-block / challenge pages instead of real content.
@@ -139,6 +164,47 @@ export async function scrapeWithContext(
 
     const responseTimeMs = Date.now() - start;
     const status = response?.status() ?? 0;
+
+    // Read before page.content(): this runs inside the live, rendered page
+    // so disabled/visible reflect real computed state (getBoundingClientRect
+    // + computed style), not static attribute guessing. A failure here
+    // (navigation mid-evaluate, detached frame) shouldn't fail the whole
+    // scrape — it just means later checks must treat this page's purchase-
+    // action evidence as incomplete rather than confidently absent.
+    const interactiveElements = await page
+      .evaluate(() => {
+        const isVisible = (el: Element): boolean => {
+          const style = window.getComputedStyle(el);
+          if (style.display === "none" || style.visibility === "hidden" || style.opacity === "0") {
+            return false;
+          }
+          const rect = el.getBoundingClientRect();
+          return rect.width > 0 && rect.height > 0;
+        };
+        const isDisabled = (el: Element): boolean => {
+          const anyEl = el as HTMLButtonElement | HTMLInputElement;
+          if (typeof anyEl.disabled === "boolean" && anyEl.disabled) return true;
+          if (el.getAttribute("aria-disabled") === "true") return true;
+          return el.closest("fieldset[disabled]") !== null;
+        };
+        const els = Array.from(
+          document.querySelectorAll('a, button, input[type="submit"], input[type="button"], [role="button"]')
+        );
+        return els.map((el) => ({
+          tag: el.tagName.toLowerCase(),
+          text: (el.textContent ?? "").replace(/\s+/g, " ").trim(),
+          ariaLabel: el.getAttribute("aria-label"),
+          role: el.getAttribute("role"),
+          type: el.getAttribute("type"),
+          href: el.getAttribute("href"),
+          disabled: isDisabled(el),
+          visible: isVisible(el),
+          classes: typeof el.className === "string" ? el.className : "",
+          testId: el.getAttribute("data-testid"),
+        }));
+      })
+      .catch(() => null);
+
     const html = await page.content();
     const $ = cheerio.load(html);
 
@@ -201,6 +267,7 @@ export async function scrapeWithContext(
       statusCode: status,
       responseTimeMs,
       screenshotDataUrl,
+      interactiveElements,
     };
   } finally {
     await page.close();

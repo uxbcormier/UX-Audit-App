@@ -135,6 +135,14 @@ export interface TeaserResults {
   // what was actually checked.
   productPageScanned: boolean;
   productPageUrl: string | null;
+  // Every page the scan actually inspected, with how it was classified —
+  // shown in the report so it never implies broader coverage than this.
+  pagesInspected: { url: string; type: string }[];
+  // Honest disclosures of what the scan could NOT confirm (e.g. a
+  // purchase-action button whose visibility couldn't be verified). These
+  // never reduce the score and are never presented as confirmed defects —
+  // see purchaseAction.ts's `unable_to_verify` status.
+  limitations: string[];
 }
 
 export interface FullResults extends TeaserResults {

@@ -442,8 +442,20 @@ export default function ScanPage() {
                 </div>
               )}
               <p className="text-xs text-neutral-500 mt-2">
-                Scanned: homepage{results.productPageScanned ? " + product page" : ""}
+                Scanned: {results.pagesInspected.map((p) => p.type).join(" + ")}
               </p>
+              {results.limitations.length > 0 && (
+                <div className="mt-3 rounded-lg border border-amber-900/40 bg-amber-950/20 px-3 py-2.5">
+                  <p className="text-xs font-medium text-amber-400/90 mb-1">Scan limitations</p>
+                  <ul className="space-y-1">
+                    {results.limitations.map((note, i) => (
+                      <li key={i} className="text-xs text-amber-200/70 leading-relaxed">
+                        {note}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </section>
 
             {/* 1. Score */}

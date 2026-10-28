@@ -7,7 +7,8 @@ import { runSeoChecks } from "./checks/seo";
 import { runUxChecks } from "./checks/ux";
 import { runTrustChecks } from "./checks/trust";
 import { runPerformanceChecks } from "./checks/performance";
-import { looksLikeSingleProductPage, runProductChecks } from "./checks/product";
+import { runProductChecks } from "./checks/product";
+import { classifyPage } from "./pageClassification";
 import { computeMetricResults, SEVERITY_WEIGHT } from "./metrics";
 import type {
   AuditIssue,
@@ -64,11 +65,13 @@ function categorySummary(issues: AuditIssue[]): Record<IssueCategory, number> {
 // capturing an incomplete DOM and producing false "no Add to Cart button"
 // findings on real, working product pages. Any failure here is swallowed —
 // a missing or broken product page should never fail the whole scan.
-async function scanProductPage(
+// Exported for regression testing (see __tests__/scanProductPage.test.ts) —
+// not part of the public scanning API otherwise.
+export async function scanProductPage(
   context: BrowserContext,
   homepage: ScrapedPage,
   baseUrl: string
-): Promise<{ issues: AuditIssue[]; productPageUrl: string | null }> {
+): Promise<{ issues: AuditIssue[]; limitations: string[]; productPageUrl: string | null }> {
   const lightOptions = { waitForNetworkIdle: true, captureScreenshot: false, navTimeoutMs: 10000 };
 
   try {
@@ -83,18 +86,20 @@ async function scanProductPage(
     }
 
     if (!productUrl) {
-      return { issues: [], productPageUrl: null };
+      return { issues: [], limitations: [], productPageUrl: null };
     }
 
     const productPage = await scrapeWithContext(context, productUrl, lightOptions);
+    const classification = classifyPage(productPage, productUrl);
 
-    if (!looksLikeSingleProductPage(productPage)) {
-      return { issues: [], productPageUrl: null };
+    if (classification.pageType !== "product") {
+      return { issues: [], limitations: [], productPageUrl: null };
     }
 
-    return { issues: runProductChecks(productPage, productUrl), productPageUrl: productUrl };
+    const { issues, limitations } = runProductChecks(productPage, productUrl, classification);
+    return { issues, limitations, productPageUrl: productUrl };
   } catch {
-    return { issues: [], productPageUrl: null };
+    return { issues: [], limitations: [], productPageUrl: null };
   }
 }
 
@@ -112,10 +117,8 @@ export async function runFullScan(url: string): Promise<{ teaser: TeaserResults;
     const page = await scrapeWithContext(context, url);
     const productPromise = scanProductPage(context, page, url);
 
-    const [psResult, { issues: productIssues, productPageUrl }] = await Promise.all([
-      pageSpeedPromise,
-      productPromise,
-    ]);
+    const [psResult, { issues: productIssues, limitations: productLimitations, productPageUrl }] =
+      await Promise.all([pageSpeedPromise, productPromise]);
 
     const industry = detectIndustry(page);
 
@@ -148,6 +151,18 @@ export async function runFullScan(url: string): Promise<{ teaser: TeaserResults;
       desktopScore: psResult?.desktopScore ?? 0,
     };
 
+    const pagesInspected: { url: string; type: string }[] = [{ url, type: "homepage" }];
+    if (productPageUrl) {
+      pagesInspected.push({ url: productPageUrl, type: "product" });
+    }
+
+    const limitations: string[] = [...productLimitations];
+    if (!productPageUrl) {
+      limitations.push(
+        "No product page could be discovered and confidently classified alongside the homepage — this report covers the homepage only, not the full store."
+      );
+    }
+
     const teaser: TeaserResults = {
       overallScore,
       grade,
@@ -162,6 +177,8 @@ export async function runFullScan(url: string): Promise<{ teaser: TeaserResults;
       screenshotUrl: page.screenshotDataUrl,
       productPageScanned: Boolean(productPageUrl),
       productPageUrl,
+      pagesInspected,
+      limitations,
     };
 
     const full: FullResults = {
