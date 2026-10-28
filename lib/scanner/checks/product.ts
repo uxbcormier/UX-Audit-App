@@ -5,7 +5,16 @@ import { normalizedBodyText } from "../normalize";
 
 const PRICE_PATTERN = /\$\s?\d[\d,]*(\.\d{2})?/g;
 const ADD_TO_CART_PATTERN = /add to (cart|bag|basket)|buy now/i;
-const SHIPPING_PATTERN = /shipping|delivery|estimated arrival|delivered by/i;
+// Many apparel/footwear PDPs (Canada Goose among them) gate the literal
+// "Add to Bag" label behind a variant choice: the primary CTA reads
+// "Select Size" (or color/variant) until the shopper picks one, at which
+// point it becomes the real add-to-cart button. That's a standard,
+// functioning purchase path, not a missing one — treating it as absent
+// produced a false "no Add to Cart button" finding on a page that has a
+// perfectly normal size-gated buy flow.
+const VARIANT_SELECT_PATTERN =
+  /select (a |your )?(size|colou?r|variant|option)|choose (a |your )?(size|colou?r)|select options/i;
+const SHIPPING_PATTERN = /shipping|ships? (within|in)|delivery|estimated arrival|delivered by/i;
 const REVIEW_PATTERN = /review|rating|stars?|testimonial|verified buyer/i;
 
 // A page with zero prices is probably a listing/about/blog page that just
@@ -43,7 +52,7 @@ export function runProductChecks(page: ScrapedPage, productUrl: string): AuditIs
     const label = normalize(
       [$el.text(), $el.attr("aria-label") ?? "", $el.attr("value") ?? ""].join(" ")
     );
-    return ADD_TO_CART_PATTERN.test(label);
+    return ADD_TO_CART_PATTERN.test(label) || VARIANT_SELECT_PATTERN.test(label);
   });
 
   // Last-resort fallback: if no matching element was found but the phrase
@@ -52,26 +61,12 @@ export function runProductChecks(page: ScrapedPage, productUrl: string): AuditIs
   // structurally unusual button (framework-specific custom element we
   // don't recognize) is far more likely than a product page that merely
   // mentions "add to cart" without an action behind it.
-  const hasAddToCartInText = ADD_TO_CART_PATTERN.test(normalize($("body").text()));
+  const bodyTextNormalized = normalize($("body").text());
+  const hasAddToCartInText =
+    ADD_TO_CART_PATTERN.test(bodyTextNormalized) || VARIANT_SELECT_PATTERN.test(bodyTextNormalized);
   const hasAddToCart = hasAddToCartElement || hasAddToCartInText;
 
   if (!hasAddToCart) {
-    // Temporary diagnostic: the regex/wait-timing fixes applied so far
-    // haven't resolved a real-world false negative on this exact check, so
-    // log what the scraper actually captured to find the true cause instead
-    // of guessing again. Safe to remove once the real cause is confirmed.
-    console.log(
-      JSON.stringify({
-        diagnostic: "product-no-cta",
-        productUrl,
-        candidateElCount: candidateEls.length,
-        bodyTextLength: text.length,
-        containsBagWord: /bag/i.test(text),
-        containsCartWord: /cart/i.test(text),
-        containsBuyWord: /buy/i.test(text),
-        bodyTextSample: text.slice(0, 4000),
-      })
-    );
     issues.push({
       id: "product-no-cta",
       category: "UX",
@@ -81,7 +76,8 @@ export function runProductChecks(page: ScrapedPage, productUrl: string): AuditIs
       observation: `No 'Add to Cart' or 'Buy Now' action was found on a product page (${productUrl}).`,
       evidence: {
         type: "element-presence",
-        detail: "No link or button matched 'add to cart', 'add to bag', 'add to basket', or 'buy now' on the product page.",
+        detail:
+          "No link or button matched 'add to cart', 'add to bag', 'add to basket', 'buy now', or a variant-selection CTA ('select size', 'select color') on the product page.",
         value: 0,
       },
       behavioralExplanation:
