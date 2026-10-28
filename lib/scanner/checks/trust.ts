@@ -22,44 +22,118 @@ function emitAbsenceFinding(
   issues.push(issue);
 }
 
+const PAYMENT_BRAND_PATTERN = /paypal|visa|mastercard|master card|amex|american express|apple pay|google pay|shop pay|klarna|afterpay|affirm/i;
+
+// Payment-method icons are almost always <img>/<svg> elements, not visible
+// text — a brand's accessible name lives in alt="" or aria-label/<title>,
+// which plain body-text matching never sees at all. Matching only against
+// page.$("body").text() (the previous implementation) meant any store using
+// actual logo images — the overwhelming majority of real storefronts — was
+// structurally invisible to this check, regardless of whether the icons
+// were really there. This was a genuine false-negative source, not just an
+// evidence-completeness timing issue.
+function hasPaymentIconEvidence(page: ScrapedPage, text: string): boolean {
+  const { $ } = page;
+
+  if (PAYMENT_BRAND_PATTERN.test(text)) return true;
+
+  const hasMatchingImgAlt = $("img").toArray().some((el) => {
+    const alt = $(el).attr("alt") ?? "";
+    return PAYMENT_BRAND_PATTERN.test(alt);
+  });
+  if (hasMatchingImgAlt) return true;
+
+  const hasMatchingSvg = $("svg").toArray().some((el) => {
+    const $el = $(el);
+    const label = [
+      $el.attr("aria-label") ?? "",
+      $el.find("title").first().text() ?? "",
+      $el.attr("class") ?? "",
+    ].join(" ");
+    return PAYMENT_BRAND_PATTERN.test(label);
+  });
+  if (hasMatchingSvg) return true;
+
+  // Common payment-icon container conventions even when the specific brand
+  // name isn't in any attribute we can read (e.g. a sprite-sheet icon font).
+  return $(
+    '[class*="payment-icon" i], [class*="payment-method" i], [class*="payment-badge" i], [data-testid*="payment" i]'
+  ).length > 0;
+}
+
 export function runTrustChecks(page: ScrapedPage): { issues: AuditIssue[]; limitations: string[] } {
   const issues: AuditIssue[] = [];
   const limitations: string[] = [];
   const { $ } = page;
   const text = normalizedBodyText(page);
 
-  // Trust badges / payment icons
-  const hasTrustBadge =
-    /paypal|visa|mastercard|amex|secure checkout|ssl secured|money.back|guarantee|norton|mcafee|trustpilot/i.test(text);
-
-  if (!hasTrustBadge) {
+  // Payment-method icons — independent from the security/guarantee check
+  // below, since a store can legitimately have one without the other, and
+  // conflating them (as the old single "trust badges" check did) produced a
+  // less specific, harder-to-act-on finding.
+  if (!hasPaymentIconEvidence(page, text)) {
     emitAbsenceFinding(
       page,
       issues,
       limitations,
-      "Could not conclusively verify whether trust badges or payment icons are present on the homepage — the page's DOM capture was incomplete for this scan.",
+      "Could not conclusively verify whether payment-method icons are present on the homepage — the page's DOM capture was incomplete for this scan.",
       {
-      id: "trust-no-badges",
-      category: "Trust",
-      metric: "Trust Coverage",
-      severity: "high",
-      title: "No trust badges or payment icons on the homepage",
-      observation: "No security badges, guarantee seals, or payment method icons were detected on the homepage.",
-      evidence: {
-        type: "element-presence",
-        detail: "No payment-method names (Visa, Mastercard, PayPal, Amex) or security/guarantee language found on the homepage.",
-        value: 0,
-      },
-      behavioralExplanation:
-        "Shoppers forming a first impression of a store look for visible signs it's a legitimate, established business before they explore further; finding none reads as a risk signal, not a neutral absence.",
-      businessImplication: "Weaker first-impression trust can mean more visitors bounce before ever reaching a product page or checkout.",
-      businessImpact: "medium",
-      confidence: 70,
-      effort: "low",
-      recommendation:
-        "Add payment method icons (Visa, Mastercard, PayPal) and a security or guarantee badge near the top of your homepage, and carry them through to checkout.",
-        sourceLabel: "research-supported",
-        researchContext: cite("trustSignalsGeneral"),
+        id: "trust-no-payment-icons",
+        category: "Trust",
+        metric: "Trust Coverage",
+        severity: "low",
+        title: "No payment-method icons detected on the homepage",
+        observation:
+          "No payment-method icons (as images, SVGs, or brand names) were detected on the homepage. Many stores only show these in the footer, at checkout, or not at all, so this is not necessarily a defect.",
+        evidence: {
+          type: "element-presence",
+          detail:
+            "No payment-brand names matched in visible text, <img alt>, <svg> labels/titles, or common payment-icon class/data-testid patterns on the homepage.",
+          value: 0,
+        },
+        behavioralExplanation:
+          "Some first-time shoppers look for recognizable payment logos as a quick legitimacy check, though many stores convert well without displaying them on the homepage specifically.",
+        businessImplication: "This is an optional trust signal, not a confirmed defect — consider it alongside your actual checkout page, which wasn't inspected by this scan.",
+        businessImpact: "low",
+        confidence: 60,
+        effort: "low",
+        recommendation:
+          "Consider adding payment-method icons (Visa, Mastercard, PayPal) near your primary CTA or in the footer, if you don't already show them at checkout.",
+        sourceLabel: "internal-heuristic",
+      }
+    );
+  }
+
+  // Security / guarantee language — kept separate from payment icons (see
+  // above). Text-based: these are near-universally phrases, not icons.
+  const hasSecurityClaim = /secure checkout|ssl secured|money.back|guarantee|norton|mcafee/i.test(text);
+
+  if (!hasSecurityClaim) {
+    emitAbsenceFinding(
+      page,
+      issues,
+      limitations,
+      "Could not conclusively verify whether security or guarantee language is present on the homepage — the page's DOM capture was incomplete for this scan.",
+      {
+        id: "trust-no-security-claim",
+        category: "Trust",
+        metric: "Trust Coverage",
+        severity: "low",
+        title: "No security or guarantee language found on the homepage",
+        observation: "No 'secure checkout', satisfaction-guarantee, or similar reassurance language was found on the homepage.",
+        evidence: {
+          type: "element-presence",
+          detail: "No security-badge or guarantee-language phrases found in the homepage's visible text.",
+          value: 0,
+        },
+        behavioralExplanation:
+          "Shoppers weighing whether to hand over payment details sometimes look for a brief, explicit reassurance before committing.",
+        businessImplication: "An optional reassurance signal, not a confirmed defect on its own.",
+        businessImpact: "low",
+        confidence: 65,
+        effort: "low",
+        recommendation: "Consider a short reassurance line ('Secure checkout', 'Free returns') near your primary CTA.",
+        sourceLabel: "internal-heuristic",
       }
     );
   }
@@ -94,8 +168,7 @@ export function runTrustChecks(page: ScrapedPage): { issues: AuditIssue[]; limit
       confidence: 70,
       effort: "medium",
         recommendation: "Add a reviews section or star ratings on your homepage and product pages.",
-        sourceLabel: "research-supported",
-        researchContext: cite("trustSignalsGeneral"),
+        sourceLabel: "internal-heuristic",
       }
     );
   }

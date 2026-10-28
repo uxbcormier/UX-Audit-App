@@ -10,14 +10,15 @@ import { runProductChecks } from "../checks/product";
 // saved HTML/DOM fixtures and mocked evidence, not live network calls.
 function makePage(html: string, interactiveElements: InteractiveElementEvidence[] | null): ScrapedPage {
   const $ = cheerio.load(html);
+  const h1s = $("h1")
+    .map((_, el) => $(el).text().trim())
+    .get();
   return {
     html,
     $,
     title: $("title").text().trim(),
     metaDescription: $('meta[name="description"]').attr("content") ?? "",
-    h1s: $("h1")
-      .map((_, el) => $(el).text().trim())
-      .get(),
+    h1s,
     h2s: $("h2")
       .map((_, el) => $(el).text().trim())
       .get(),
@@ -30,6 +31,7 @@ function makePage(html: string, interactiveElements: InteractiveElementEvidence[
     responseTimeMs: 150,
     screenshotDataUrl: null,
     interactiveElements,
+    headingAudit: interactiveElements !== null ? { h1Count: h1s.length, visibleH1Count: h1s.length } : null,
     evidenceComplete: interactiveElements !== null,
   };
 }

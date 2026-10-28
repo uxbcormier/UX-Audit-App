@@ -127,13 +127,27 @@ export async function runFullScan(url: string): Promise<{ teaser: TeaserResults;
     const { issues: trustIssues, limitations: trustLimitations } = runTrustChecks(page);
     const perfIssues = psResult ? runPerformanceChecks(psResult) : [];
 
-    const allIssues: AuditIssue[] = [
+    const combinedIssues: AuditIssue[] = [
       ...seoIssues,
       ...uxIssues,
       ...trustIssues,
       ...perfIssues,
       ...productIssues,
-    ].sort((a, b) => SEVERITY_WEIGHT[b.severity] - SEVERITY_WEIGHT[a.severity]);
+    ];
+
+    // Defensive dedup: each check module only ever pushes a given issue id
+    // once per page today, so this shouldn't currently fire — but nothing
+    // structurally prevents two checks (now or in a future change) from
+    // emitting the same id, and a single real defect must never count as
+    // two penalties against the score. Keeps the first occurrence.
+    const seenIssueIds = new Set<string>();
+    const allIssues: AuditIssue[] = combinedIssues
+      .filter((issue) => {
+        if (seenIssueIds.has(issue.id)) return false;
+        seenIssueIds.add(issue.id);
+        return true;
+      })
+      .sort((a, b) => SEVERITY_WEIGHT[b.severity] - SEVERITY_WEIGHT[a.severity]);
 
     const overallScore = calcScore(allIssues);
     const grade = scoreToGrade(overallScore);

@@ -42,6 +42,7 @@ function makeHomepage(): ScrapedPage {
     responseTimeMs: 100,
     screenshotDataUrl: null,
     interactiveElements: [],
+    headingAudit: { h1Count: 1, visibleH1Count: 1 },
     evidenceComplete: true,
   };
 }
@@ -92,6 +93,7 @@ describe("scanProductPage — pipeline-level failure handling", () => {
       responseTimeMs: 100,
       screenshotDataUrl: null,
       interactiveElements: null,
+      headingAudit: null,
       evidenceComplete: false,
     });
 
@@ -142,6 +144,7 @@ describe("scanProductPage — pipeline-level failure handling", () => {
           testId: null,
         },
       ],
+      headingAudit: { h1Count: 1, visibleH1Count: 1 },
       evidenceComplete: true,
     });
 

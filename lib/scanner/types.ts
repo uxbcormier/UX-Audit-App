@@ -51,6 +51,29 @@ export interface ResearchCitation {
   url?: string;
 }
 
+// `confidence` methodology (deliberately disclosed here rather than left
+// implicit): this is a manually-assigned detection-certainty scale per
+// check, NOT a statistically calibrated model trained or validated against
+// labeled outcomes — no such calibration exists for this product. Each
+// check's author assigns it by the kind of evidence the check actually
+// has, roughly:
+//   95-100  A structural/deterministic fact with no judgment call
+//           involved (e.g. "page is served over http://, not https://",
+//           "a <meta name=viewport> tag is absent from <head>").
+//   80-94   A direct measurement from an external, authoritative source
+//           (e.g. a Google PageSpeed/Lighthouse score), or pattern-matching
+//           with very low false-positive/negative risk.
+//   60-79   Heuristic pattern-matching (regex/selector-based) against real
+//           but imperfect evidence — the dominant case across these
+//           checks — where a real site's unusual markup could plausibly
+//           produce a false reading despite the check's safeguards.
+//   Below 60 is not used; a check this uncertain should return no finding
+//   (or a `limitations` entry) rather than a low-confidence issue.
+// This is a transparent, disclosed heuristic scale for READERS to weigh a
+// finding by, not a claim of statistical precision. It is also distinct
+// from `businessImpact` below, which is a separate, qualitative judgment
+// about consequence (not a confidence level) — the two must never be
+// conflated into one number.
 export interface AuditIssue {
   id: string;
   category: IssueCategory;
@@ -61,8 +84,8 @@ export interface AuditIssue {
   evidence: Evidence; // the underlying measurable evidence behind the observation
   behavioralExplanation: string; // why this tends to change how shoppers behave
   businessImplication: string; // what that behavior tends to cost
-  businessImpact: BusinessImpact; // qualitative — not a fabricated percentage
-  confidence: number; // 0-100: how directly the scanner could verify this finding
+  businessImpact: BusinessImpact; // qualitative — not a fabricated percentage, and not a confidence level
+  confidence: number; // 0-100: observation confidence only — see methodology note above
   effort: IssueEffort;
   recommendation: string; // paid-only: actionable remediation
   sourceLabel: SourceLabel;

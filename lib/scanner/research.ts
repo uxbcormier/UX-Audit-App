@@ -21,33 +21,24 @@ export const RESEARCH_LIBRARY = {
     title: "Choice and Reaction Time",
     summary:
       "Long-established psychology research showing decision time increases with the number of choices presented — the basis for 'choice overload' effects on pages with many competing calls-to-action.",
+    // The 1952/1953 papers themselves aren't freely URL-accessible; this
+    // points to a stable secondary reference that accurately describes the
+    // finding and its origin, consistent with how it's cited above.
+    url: "https://en.wikipedia.org/wiki/Hick%27s_law",
   },
   baymardPDP: {
     source: "Baymard Institute",
-    title: "Product Page & Ecommerce UX Research",
+    title: "User Reviews Section (ecommerce PDP usability research)",
     summary:
-      "Large-scale ecommerce usability testing has repeatedly found that shoppers look for reviews and clear product-level information before adding an item to cart.",
-    url: "https://baymard.com/",
+      "Baymard's usability testing found the large majority of shoppers rely on the reviews section when evaluating a product, often more than the product description itself.",
+    url: "https://baymard.com/ecommerce-design-examples/44-user-reviews-section",
   },
   baymardCheckout: {
     source: "Baymard Institute",
-    title: "Checkout Usability & Cart Abandonment Research",
+    title: "How to Reduce Cart Abandonment (Data-Backed UX Strategies)",
     summary:
-      "Baymard's checkout research is well known for identifying unexpected shipping costs and unclear return terms as among the most commonly cited reasons shoppers abandon a cart.",
-    url: "https://baymard.com/",
-  },
-  trustSignalsGeneral: {
-    source: "Baymard Institute",
-    title: "Ecommerce Trust & Credibility Research",
-    summary:
-      "Research on new-visitor trust finds that visible security/payment badges, accessible policies, and social proof are among the signals shoppers use to judge a store's legitimacy before buying.",
-    url: "https://baymard.com/",
-  },
-  googleMobileSpeed: {
-    source: "Google",
-    title: "Mobile Page Speed Industry Benchmarks",
-    summary:
-      "Google's published research into mobile page load times found abandonment rates rise sharply as load time increases, particularly past the 3-second mark.",
+      "Baymard's checkout research found extra costs revealed late in checkout (shipping, taxes, fees) to be the single most commonly cited reason for cart abandonment.",
+    url: "https://baymard.com/learn/reduce-cart-abandonment",
   },
   webVitals: {
     source: "web.dev (Google)",

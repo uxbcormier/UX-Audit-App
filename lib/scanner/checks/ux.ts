@@ -129,8 +129,7 @@ export function runUxChecks(page: ScrapedPage): { issues: AuditIssue[]; limitati
       confidence: 70,
       effort: "low",
       recommendation: "Add a phone number or live chat widget to the header or footer.",
-      sourceLabel: "research-supported",
-      researchContext: cite("trustSignalsGeneral"),
+      sourceLabel: "internal-heuristic",
     });
   }
 

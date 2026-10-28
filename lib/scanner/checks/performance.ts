@@ -25,8 +25,9 @@ export function runPerformanceChecks(ps: PageSpeedResult): AuditIssue[] {
       confidence: 95,
       effort: "high",
       recommendation: "Compress images, remove unused JavaScript, and enable server-side caching.",
-      sourceLabel: "research-supported",
-      researchContext: cite("googleMobileSpeed"),
+      // The score itself is a direct Google PageSpeed measurement, not a
+      // claim resting on separate external research — no citation needed.
+      sourceLabel: "observed",
     });
   } else if (ps.mobileScore < 70) {
     issues.push({
@@ -48,8 +49,7 @@ export function runPerformanceChecks(ps: PageSpeedResult): AuditIssue[] {
       confidence: 95,
       effort: "medium",
       recommendation: "Optimize images, defer non-critical scripts, and use a CDN.",
-      sourceLabel: "research-supported",
-      researchContext: cite("googleMobileSpeed"),
+      sourceLabel: "observed",
     });
   }
 

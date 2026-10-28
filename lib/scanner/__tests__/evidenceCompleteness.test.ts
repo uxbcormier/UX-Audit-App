@@ -13,14 +13,15 @@ import { runUxChecks } from "../checks/ux";
 // discipline already applied to the Add to Cart detector.
 function makeHomepage(html: string, evidenceComplete: boolean): ScrapedPage {
   const $ = cheerio.load(html);
+  const h1s = $("h1")
+    .map((_, el) => $(el).text().trim())
+    .get();
   return {
     html,
     $,
     title: $("title").text().trim(),
     metaDescription: "",
-    h1s: $("h1")
-      .map((_, el) => $(el).text().trim())
-      .get(),
+    h1s,
     h2s: [],
     images: [],
     links: $("a")
@@ -31,6 +32,7 @@ function makeHomepage(html: string, evidenceComplete: boolean): ScrapedPage {
     responseTimeMs: 100,
     screenshotDataUrl: null,
     interactiveElements: evidenceComplete ? [] : null,
+    headingAudit: evidenceComplete ? { h1Count: h1s.length, visibleH1Count: h1s.length } : null,
     evidenceComplete,
   };
 }
@@ -52,18 +54,18 @@ describe("evidence-completeness gating on 'confirmed absence' findings", () => {
     expect(limitations.some((l) => l.toLowerCase().includes("h1"))).toBe(true);
   });
 
-  it("trust-no-badges: raises the issue when evidence is complete and no badges exist", () => {
+  it("trust-no-payment-icons: raises the issue when evidence is complete and no icons exist", () => {
     const page = makeHomepage(BARE_HOMEPAGE_HTML, true);
     const { issues, limitations } = runTrustChecks(page);
-    expect(issues.map((i) => i.id)).toContain("trust-no-badges");
+    expect(issues.map((i) => i.id)).toContain("trust-no-payment-icons");
     expect(limitations).toHaveLength(0);
   });
 
-  it("trust-no-badges: withholds the issue and discloses a limitation when evidence is incomplete", () => {
+  it("trust-no-payment-icons: withholds the issue and discloses a limitation when evidence is incomplete", () => {
     const page = makeHomepage(BARE_HOMEPAGE_HTML, false);
     const { issues, limitations } = runTrustChecks(page);
-    expect(issues.map((i) => i.id)).not.toContain("trust-no-badges");
-    expect(limitations.some((l) => l.toLowerCase().includes("trust badge"))).toBe(true);
+    expect(issues.map((i) => i.id)).not.toContain("trust-no-payment-icons");
+    expect(limitations.some((l) => l.toLowerCase().includes("payment-method icons"))).toBe(true);
   });
 
   it("ux-no-cta: raises the issue when evidence is complete and no CTA exists", () => {
@@ -94,7 +96,8 @@ describe("evidence-completeness gating on 'confirmed absence' findings", () => {
       const trust = runTrustChecks(page);
       const ux = runUxChecks(page);
       expect(seo.issues.map((i) => i.id)).not.toContain("seo-missing-h1");
-      expect(trust.issues.map((i) => i.id)).not.toContain("trust-no-badges");
+      expect(trust.issues.map((i) => i.id)).not.toContain("trust-no-payment-icons");
+      expect(trust.issues.map((i) => i.id)).not.toContain("trust-no-security-claim");
       expect(ux.issues.map((i) => i.id)).not.toContain("ux-no-cta");
     }
   });

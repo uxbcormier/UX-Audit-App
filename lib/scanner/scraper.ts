@@ -22,6 +22,17 @@ export interface InteractiveElementEvidence {
   testId: string | null;
 }
 
+// Real computed visibility of H1 elements, read the same way as
+// InteractiveElementEvidence — cheerio's h1s[] below (plain .text() content)
+// can't distinguish "no H1 anywhere in the DOM" from "an H1 exists but is
+// visually hidden" (display:none, a mobile-only duplicate, a skip-link
+// style visually-hidden-but-accessible heading, etc). Both are real, but
+// they're different findings with different severity.
+export interface HeadingAudit {
+  h1Count: number;
+  visibleH1Count: number;
+}
+
 export interface ScrapedPage {
   html: string;
   $: ReturnType<typeof cheerio.load>;
@@ -42,6 +53,9 @@ export interface ScrapedPage {
   // Checks MUST treat null here as "this page's evidence is incomplete,"
   // never as "no interactive elements exist" — those are different facts.
   interactiveElements: InteractiveElementEvidence[] | null;
+  // Real computed H1 visibility, or null on the same evaluation-failure
+  // condition as interactiveElements. See HeadingAudit.
+  headingAudit: HeadingAudit | null;
   // True when this page's DOM capture is as complete as the scraper can
   // make it (interactiveElements !== null). Any check whose finding is
   // "X was NOT found anywhere on the page" should treat false here as a
@@ -179,7 +193,7 @@ export async function scrapeWithContext(
     // (navigation mid-evaluate, detached frame) shouldn't fail the whole
     // scrape — it just means later checks must treat this page's purchase-
     // action evidence as incomplete rather than confidently absent.
-    const interactiveElements = await page
+    const liveEvidence = await page
       .evaluate(() => {
         const isVisible = (el: Element): boolean => {
           const style = window.getComputedStyle(el);
@@ -198,7 +212,7 @@ export async function scrapeWithContext(
         const els = Array.from(
           document.querySelectorAll('a, button, input[type="submit"], input[type="button"], [role="button"]')
         );
-        return els.map((el) => ({
+        const interactiveElements = els.map((el) => ({
           tag: el.tagName.toLowerCase(),
           text: (el.textContent ?? "").replace(/\s+/g, " ").trim(),
           ariaLabel: el.getAttribute("aria-label"),
@@ -210,8 +224,19 @@ export async function scrapeWithContext(
           classes: typeof el.className === "string" ? el.className : "",
           testId: el.getAttribute("data-testid"),
         }));
+
+        const h1Els = Array.from(document.querySelectorAll("h1"));
+        const headingAudit = {
+          h1Count: h1Els.length,
+          visibleH1Count: h1Els.filter(isVisible).length,
+        };
+
+        return { interactiveElements, headingAudit };
       })
       .catch(() => null);
+
+    const interactiveElements = liveEvidence?.interactiveElements ?? null;
+    const headingAudit = liveEvidence?.headingAudit ?? null;
 
     const html = await page.content();
     const $ = cheerio.load(html);
@@ -276,6 +301,7 @@ export async function scrapeWithContext(
       responseTimeMs,
       screenshotDataUrl,
       interactiveElements,
+      headingAudit,
       evidenceComplete: interactiveElements !== null,
     };
   } finally {

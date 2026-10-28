@@ -1,6 +1,5 @@
 import type { ScrapedPage } from "../scraper";
 import type { AuditIssue } from "../types";
-import { cite } from "../research";
 
 export function runSeoChecks(page: ScrapedPage): { issues: AuditIssue[]; limitations: string[] } {
   const issues: AuditIssue[] = [];
@@ -81,23 +80,23 @@ export function runSeoChecks(page: ScrapedPage): { issues: AuditIssue[]; limitat
     });
   }
 
-  if (page.h1s.length === 0 && !page.evidenceComplete) {
-    // The same false-negative risk class that caused the Add to Cart bug:
-    // an incomplete DOM capture can't prove an H1 doesn't exist anywhere on
-    // the real, fully-rendered page — only that none was found in what WAS
-    // captured. Disclose the gap instead of asserting a confirmed defect.
+  if (page.headingAudit === null) {
+    // No real-browser evaluation succeeded for this page, so there's no
+    // trustworthy way to tell "no H1 exists" apart from "an H1 exists but
+    // wasn't captured" or "an H1 exists but is visually hidden." Disclose
+    // the gap instead of asserting a confirmed defect either way.
     limitations.push(
-      "Could not conclusively verify whether the homepage has an H1 heading — the page's DOM capture was incomplete for this scan."
+      "Could not conclusively verify whether the homepage has a visible H1 heading — the page's DOM capture was incomplete for this scan."
     );
-  } else if (page.h1s.length === 0) {
+  } else if (page.headingAudit.h1Count === 0) {
     issues.push({
       id: "seo-missing-h1",
       category: "SEO",
       metric: "Search Experience",
       severity: "high",
       title: "No H1 heading found",
-      observation: "The homepage has no H1 tag.",
-      evidence: { type: "count", detail: "0 <h1> elements found on the homepage.", value: 0 },
+      observation: "The homepage has no H1 tag anywhere in the rendered DOM.",
+      evidence: { type: "count", detail: "0 <h1> elements found in the rendered page.", value: 0 },
       behavioralExplanation:
         "Without a clear primary heading, both search engines and skimming visitors struggle to identify what the page is actually for.",
       businessImplication: "Weaker topical relevance signals can reduce qualified organic traffic.",
@@ -105,6 +104,32 @@ export function runSeoChecks(page: ScrapedPage): { issues: AuditIssue[]; limitat
       confidence: 95,
       effort: "low",
       recommendation: "Add a single, descriptive H1 tag that includes your primary keyword.",
+      sourceLabel: "observed",
+    });
+  } else if (page.headingAudit.visibleH1Count === 0) {
+    // An H1 exists in the DOM but isn't visibly rendered — a real, distinct
+    // finding (worth fixing) but not the same claim as "no H1 at all," and
+    // meaningfully less severe: search engines still see it even if
+    // visitors can't.
+    issues.push({
+      id: "seo-h1-hidden",
+      category: "SEO",
+      metric: "Search Experience",
+      severity: "warning",
+      title: "H1 heading exists but isn't visibly rendered",
+      observation: `${page.headingAudit.h1Count} <h1> element(s) exist in the DOM, but none are visibly rendered on the page.`,
+      evidence: {
+        type: "count",
+        detail: `${page.headingAudit.h1Count} <h1> element(s) found; 0 visible (computed display/visibility/size).`,
+        value: page.headingAudit.h1Count,
+      },
+      behavioralExplanation:
+        "A heading hidden from view gives search engines a primary topic signal but gives visitors skimming the page no visible anchor for what it's about.",
+      businessImplication: "Visitors lose a visible orientation cue, even though search crawlers still see the heading.",
+      businessImpact: "low",
+      confidence: 85,
+      effort: "low",
+      recommendation: "Make your H1 visible on the page, or move its content into a heading that is.",
       sourceLabel: "observed",
     });
   } else if (page.h1s.length > 1) {
@@ -175,8 +200,7 @@ export function runSeoChecks(page: ScrapedPage): { issues: AuditIssue[]; limitat
       confidence: 100,
       effort: "medium",
       recommendation: "Install an SSL certificate and redirect all HTTP traffic to HTTPS.",
-      sourceLabel: "research-supported",
-      researchContext: cite("trustSignalsGeneral"),
+      sourceLabel: "observed",
     });
   }
 
