@@ -2,8 +2,9 @@ import type { ScrapedPage } from "../scraper";
 import type { AuditIssue } from "../types";
 import { cite } from "../research";
 
-export function runSeoChecks(page: ScrapedPage): AuditIssue[] {
+export function runSeoChecks(page: ScrapedPage): { issues: AuditIssue[]; limitations: string[] } {
   const issues: AuditIssue[] = [];
+  const limitations: string[] = [];
 
   if (!page.title) {
     issues.push({
@@ -80,7 +81,15 @@ export function runSeoChecks(page: ScrapedPage): AuditIssue[] {
     });
   }
 
-  if (page.h1s.length === 0) {
+  if (page.h1s.length === 0 && !page.evidenceComplete) {
+    // The same false-negative risk class that caused the Add to Cart bug:
+    // an incomplete DOM capture can't prove an H1 doesn't exist anywhere on
+    // the real, fully-rendered page — only that none was found in what WAS
+    // captured. Disclose the gap instead of asserting a confirmed defect.
+    limitations.push(
+      "Could not conclusively verify whether the homepage has an H1 heading — the page's DOM capture was incomplete for this scan."
+    );
+  } else if (page.h1s.length === 0) {
     issues.push({
       id: "seo-missing-h1",
       category: "SEO",
@@ -171,5 +180,5 @@ export function runSeoChecks(page: ScrapedPage): AuditIssue[] {
     });
   }
 
-  return issues;
+  return { issues, limitations };
 }

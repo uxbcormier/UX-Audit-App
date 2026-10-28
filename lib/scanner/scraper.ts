@@ -42,6 +42,14 @@ export interface ScrapedPage {
   // Checks MUST treat null here as "this page's evidence is incomplete,"
   // never as "no interactive elements exist" — those are different facts.
   interactiveElements: InteractiveElementEvidence[] | null;
+  // True when this page's DOM capture is as complete as the scraper can
+  // make it (interactiveElements !== null). Any check whose finding is
+  // "X was NOT found anywhere on the page" should treat false here as a
+  // reason to withhold that definitive claim — an incomplete capture can't
+  // prove absence, only that nothing was found in what WAS captured. This
+  // is the same evidence-quality signal purchaseAction.ts uses, applied
+  // generally rather than just to the Add to Cart check.
+  evidenceComplete: boolean;
 }
 
 // Phrases that show up on bot-block / challenge pages instead of real content.
@@ -268,6 +276,7 @@ export async function scrapeWithContext(
       responseTimeMs,
       screenshotDataUrl,
       interactiveElements,
+      evidenceComplete: interactiveElements !== null,
     };
   } finally {
     await page.close();

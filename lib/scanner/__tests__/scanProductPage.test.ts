@@ -42,6 +42,7 @@ function makeHomepage(): ScrapedPage {
     responseTimeMs: 100,
     screenshotDataUrl: null,
     interactiveElements: [],
+    evidenceComplete: true,
   };
 }
 
@@ -91,6 +92,7 @@ describe("scanProductPage — pipeline-level failure handling", () => {
       responseTimeMs: 100,
       screenshotDataUrl: null,
       interactiveElements: null,
+      evidenceComplete: false,
     });
 
     const result = await scanProductPage({} as never, makeHomepage(), "https://example.com");
@@ -140,6 +142,7 @@ describe("scanProductPage — pipeline-level failure handling", () => {
           testId: null,
         },
       ],
+      evidenceComplete: true,
     });
 
     const result = await scanProductPage({} as never, makeHomepage(), "https://example.com");

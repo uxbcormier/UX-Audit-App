@@ -122,9 +122,9 @@ export async function runFullScan(url: string): Promise<{ teaser: TeaserResults;
 
     const industry = detectIndustry(page);
 
-    const seoIssues = runSeoChecks(page);
-    const uxIssues = runUxChecks(page);
-    const trustIssues = runTrustChecks(page);
+    const { issues: seoIssues, limitations: seoLimitations } = runSeoChecks(page);
+    const { issues: uxIssues, limitations: uxLimitations } = runUxChecks(page);
+    const { issues: trustIssues, limitations: trustLimitations } = runTrustChecks(page);
     const perfIssues = psResult ? runPerformanceChecks(psResult) : [];
 
     const allIssues: AuditIssue[] = [
@@ -156,7 +156,12 @@ export async function runFullScan(url: string): Promise<{ teaser: TeaserResults;
       pagesInspected.push({ url: productPageUrl, type: "product" });
     }
 
-    const limitations: string[] = [...productLimitations];
+    const limitations: string[] = [
+      ...seoLimitations,
+      ...uxLimitations,
+      ...trustLimitations,
+      ...productLimitations,
+    ];
     if (!productPageUrl) {
       limitations.push(
         "No product page could be discovered and confidently classified alongside the homepage — this report covers the homepage only, not the full store."

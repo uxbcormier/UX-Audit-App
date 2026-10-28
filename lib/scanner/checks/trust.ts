@@ -3,8 +3,28 @@ import type { AuditIssue } from "../types";
 import { cite } from "../research";
 import { normalizedBodyText } from "../normalize";
 
-export function runTrustChecks(page: ScrapedPage): AuditIssue[] {
+// Every "no X found" check below shares the same false-negative risk the
+// Add to Cart bug exposed: an incomplete DOM capture can't prove something
+// doesn't exist on the real page, only that it wasn't in what was captured.
+// When page.evidenceComplete is false, these push a disclosed limitation
+// instead of a confident defect claim.
+function emitAbsenceFinding(
+  page: ScrapedPage,
+  issues: AuditIssue[],
+  limitations: string[],
+  limitationNote: string,
+  issue: AuditIssue
+): void {
+  if (!page.evidenceComplete) {
+    limitations.push(limitationNote);
+    return;
+  }
+  issues.push(issue);
+}
+
+export function runTrustChecks(page: ScrapedPage): { issues: AuditIssue[]; limitations: string[] } {
   const issues: AuditIssue[] = [];
+  const limitations: string[] = [];
   const { $ } = page;
   const text = normalizedBodyText(page);
 
@@ -13,7 +33,12 @@ export function runTrustChecks(page: ScrapedPage): AuditIssue[] {
     /paypal|visa|mastercard|amex|secure checkout|ssl secured|money.back|guarantee|norton|mcafee|trustpilot/i.test(text);
 
   if (!hasTrustBadge) {
-    issues.push({
+    emitAbsenceFinding(
+      page,
+      issues,
+      limitations,
+      "Could not conclusively verify whether trust badges or payment icons are present on the homepage — the page's DOM capture was incomplete for this scan.",
+      {
       id: "trust-no-badges",
       category: "Trust",
       metric: "Trust Coverage",
@@ -33,9 +58,10 @@ export function runTrustChecks(page: ScrapedPage): AuditIssue[] {
       effort: "low",
       recommendation:
         "Add payment method icons (Visa, Mastercard, PayPal) and a security or guarantee badge near the top of your homepage, and carry them through to checkout.",
-      sourceLabel: "research-supported",
-      researchContext: cite("trustSignalsGeneral"),
-    });
+        sourceLabel: "research-supported",
+        researchContext: cite("trustSignalsGeneral"),
+      }
+    );
   }
 
   // Reviews / social proof
@@ -44,7 +70,12 @@ export function runTrustChecks(page: ScrapedPage): AuditIssue[] {
     $('[class*="review"], [class*="rating"], [class*="star"]').length > 0;
 
   if (!hasSocialProof) {
-    issues.push({
+    emitAbsenceFinding(
+      page,
+      issues,
+      limitations,
+      "Could not conclusively verify whether customer reviews or social proof are present on the homepage — the page's DOM capture was incomplete for this scan.",
+      {
       id: "trust-no-reviews",
       category: "Trust",
       metric: "Trust Coverage",
@@ -62,17 +93,23 @@ export function runTrustChecks(page: ScrapedPage): AuditIssue[] {
       businessImpact: "medium",
       confidence: 70,
       effort: "medium",
-      recommendation: "Add a reviews section or star ratings on your homepage and product pages.",
-      sourceLabel: "research-supported",
-      researchContext: cite("trustSignalsGeneral"),
-    });
+        recommendation: "Add a reviews section or star ratings on your homepage and product pages.",
+        sourceLabel: "research-supported",
+        researchContext: cite("trustSignalsGeneral"),
+      }
+    );
   }
 
   // Return / refund policy
   const hasReturnPolicy = /return policy|refund|money.back guarantee|free returns|hassle.free/i.test(text);
 
   if (!hasReturnPolicy) {
-    issues.push({
+    emitAbsenceFinding(
+      page,
+      issues,
+      limitations,
+      "Could not conclusively verify whether a return/refund policy is mentioned on the homepage — the page's DOM capture was incomplete for this scan.",
+      {
       id: "trust-no-return-policy",
       category: "Trust",
       metric: "Trust Coverage",
@@ -90,17 +127,23 @@ export function runTrustChecks(page: ScrapedPage): AuditIssue[] {
       businessImpact: "medium",
       confidence: 75,
       effort: "low",
-      recommendation: "Add a return policy callout ('Free 30-day returns') near the CTA or in the header.",
-      sourceLabel: "research-supported",
-      researchContext: cite("baymardCheckout"),
-    });
+        recommendation: "Add a return policy callout ('Free 30-day returns') near the CTA or in the header.",
+        sourceLabel: "research-supported",
+        researchContext: cite("baymardCheckout"),
+      }
+    );
   }
 
   // Privacy policy link
   const hasPrivacy = $('a[href*="privacy"]').length > 0 || /privacy policy/i.test(text);
 
   if (!hasPrivacy) {
-    issues.push({
+    emitAbsenceFinding(
+      page,
+      issues,
+      limitations,
+      "Could not conclusively verify whether a privacy policy link is present on the homepage — the page's DOM capture was incomplete for this scan.",
+      {
       id: "trust-no-privacy",
       category: "Trust",
       metric: "Trust Coverage",
@@ -118,16 +161,22 @@ export function runTrustChecks(page: ScrapedPage): AuditIssue[] {
       businessImpact: "low",
       confidence: 85,
       effort: "low",
-      recommendation: "Add a privacy policy link to your footer and ensure it covers data collection.",
-      sourceLabel: "internal-heuristic",
-    });
+        recommendation: "Add a privacy policy link to your footer and ensure it covers data collection.",
+        sourceLabel: "internal-heuristic",
+      }
+    );
   }
 
   // About page
   const hasAbout = $('a[href*="about"]').length > 0 || /about us|our story|who we are/i.test(text);
 
   if (!hasAbout) {
-    issues.push({
+    emitAbsenceFinding(
+      page,
+      issues,
+      limitations,
+      "Could not conclusively verify whether an About Us link is present on the homepage — the page's DOM capture was incomplete for this scan.",
+      {
       id: "trust-no-about",
       category: "Trust",
       metric: "Trust Coverage",
@@ -145,10 +194,11 @@ export function runTrustChecks(page: ScrapedPage): AuditIssue[] {
       businessImpact: "low",
       confidence: 80,
       effort: "low",
-      recommendation: "Add an 'About Us' page link in your navigation or footer.",
-      sourceLabel: "internal-heuristic",
-    });
+        recommendation: "Add an 'About Us' page link in your navigation or footer.",
+        sourceLabel: "internal-heuristic",
+      }
+    );
   }
 
-  return issues;
+  return { issues, limitations };
 }

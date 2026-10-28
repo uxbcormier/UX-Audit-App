@@ -30,6 +30,7 @@ function makePage(html: string, interactiveElements: InteractiveElementEvidence[
     responseTimeMs: 150,
     screenshotDataUrl: null,
     interactiveElements,
+    evidenceComplete: interactiveElements !== null,
   };
 }
 

@@ -13,8 +13,9 @@ function isHomeHref(href: string | undefined): boolean {
   return false;
 }
 
-export function runUxChecks(page: ScrapedPage): AuditIssue[] {
+export function runUxChecks(page: ScrapedPage): { issues: AuditIssue[]; limitations: string[] } {
   const issues: AuditIssue[] = [];
+  const limitations: string[] = [];
   const { $ } = page;
 
   // Check for CTA buttons. We match on link/button text rather than class
@@ -35,7 +36,11 @@ export function runUxChecks(page: ScrapedPage): AuditIssue[] {
     return ctaKeywords.test(label);
   });
 
-  if (ctaButtons.length === 0) {
+  if (ctaButtons.length === 0 && !page.evidenceComplete) {
+    limitations.push(
+      "Could not conclusively verify whether a call-to-action button is present above the fold — the page's DOM capture was incomplete for this scan."
+    );
+  } else if (ctaButtons.length === 0) {
     issues.push({
       id: "ux-no-cta",
       category: "UX",
@@ -100,7 +105,11 @@ export function runUxChecks(page: ScrapedPage): AuditIssue[] {
   const hasEmail = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/i.test(page.html);
   const hasChatWidget = /intercom|tawk|zendesk|crisp|livechat|tidio|freshchat/i.test(page.html);
 
-  if (!hasPhone && !hasEmail && !hasChatWidget) {
+  if (!hasPhone && !hasEmail && !hasChatWidget && !page.evidenceComplete) {
+    limitations.push(
+      "Could not conclusively verify whether contact information is present on the homepage — the page's DOM capture was incomplete for this scan."
+    );
+  } else if (!hasPhone && !hasEmail && !hasChatWidget) {
     issues.push({
       id: "ux-no-contact",
       category: "UX",
@@ -129,7 +138,11 @@ export function runUxChecks(page: ScrapedPage): AuditIssue[] {
   const hasSearch =
     $('input[type="search"], input[name="q"], input[placeholder*="search" i], [class*="search"]').length > 0;
 
-  if (!hasSearch) {
+  if (!hasSearch && !page.evidenceComplete) {
+    limitations.push(
+      "Could not conclusively verify whether site search is present on the homepage — the page's DOM capture was incomplete for this scan."
+    );
+  } else if (!hasSearch) {
     issues.push({
       id: "ux-no-search",
       category: "UX",
@@ -312,5 +325,5 @@ export function runUxChecks(page: ScrapedPage): AuditIssue[] {
     });
   }
 
-  return issues;
+  return { issues, limitations };
 }
