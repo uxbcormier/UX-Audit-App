@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
         price_data: {
           currency: "usd",
           product_data: {
-            name: "Full UX Audit Report",
+            name: "Grafter — Full Audit Report",
             description: `Complete audit for ${scan.url} — all issues, revenue estimates, and fix recommendations.`,
             images: [`${baseUrl}/og-audit.png`],
           },

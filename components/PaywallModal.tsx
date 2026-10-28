@@ -50,39 +50,27 @@ export default function PaywallModal({ scanId, highImpactCount, totalIssues, onC
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-        onClick={onClose}
-      />
-      <div className="relative bg-neutral-900 border border-neutral-800 rounded-2xl shadow-2xl max-w-md w-full p-8 z-10">
-        <button
-          onClick={onClose}
-          className="absolute top-4 right-4 text-neutral-500 hover:text-neutral-300"
-        >
+      <div className="absolute inset-0 bg-ink/60 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative bg-paper border border-stone max-w-md w-full p-8 z-10">
+        <button onClick={onClose} className="absolute top-4 right-4 text-stone-text hover:text-ink">
           <X size={20} />
         </button>
 
         <div className="text-center mb-6">
-          <div className="w-12 h-12 bg-teal-950/50 border border-teal-900/50 rounded-full flex items-center justify-center mx-auto mb-3">
-            <Lock size={22} className="text-teal-400" />
+          <div className="w-12 h-12 border border-forest/40 flex items-center justify-center mx-auto mb-3">
+            <Lock size={22} className="text-forest" />
           </div>
-          <h2 className="text-2xl font-bold text-neutral-100 mb-1">
-            Unlock Your Full Report
-          </h2>
-          <p className="text-neutral-400 text-sm">
+          <h2 className="font-display text-2xl text-ink mb-1">Unlock Your Full Report</h2>
+          <p className="text-stone-text text-sm">
             {totalIssues} findings detected ·{" "}
-            <strong className="text-red-400">
-              {highImpactCount} high-impact
-            </strong>{" "}
-            opportunit{highImpactCount === 1 ? "y" : "ies"}
+            <strong className="text-rust">{highImpactCount} high-impact</strong> opportunit
+            {highImpactCount === 1 ? "y" : "ies"}
           </p>
         </div>
 
         {/* What you get */}
-        <div className="bg-neutral-950/60 border border-neutral-800 rounded-xl p-4 mb-6">
-          <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500 mb-3">
-            What&apos;s included
-          </p>
+        <div className="bg-white border border-stone p-4 mb-6">
+          <p className="text-xs font-semibold uppercase tracking-wide text-stone-text mb-3">What&apos;s included</p>
           <ul className="flex flex-col gap-2">
             {[
               `All ${totalIssues} findings with full evidence and behavioral context`,
@@ -91,8 +79,8 @@ export default function PaywallModal({ scanId, highImpactCount, totalIssues, onC
               "Priority recommendations ranked by impact",
               "Shareable report link",
             ].map((item) => (
-              <li key={item} className="flex items-start gap-2 text-sm text-neutral-300">
-                <CheckCircle size={15} className="text-teal-400 shrink-0 mt-0.5" />
+              <li key={item} className="flex items-start gap-2 text-sm text-ink">
+                <CheckCircle size={15} className="text-forest shrink-0 mt-0.5" />
                 {item}
               </li>
             ))}
@@ -101,32 +89,28 @@ export default function PaywallModal({ scanId, highImpactCount, totalIssues, onC
 
         {/* Email + CTA */}
         <form onSubmit={handleCheckout}>
-          <label className="block text-sm font-medium text-neutral-300 mb-1">
-            Email address
-          </label>
+          <label className="block text-sm font-medium text-ink mb-1">Email address</label>
           <input
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="you@yourstore.com"
-            className="w-full px-4 py-2.5 bg-neutral-950 border border-neutral-700 rounded-xl mb-4 text-neutral-100 placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-teal-500 text-sm"
+            className="w-full px-4 py-2.5 bg-white border border-stone mb-4 text-ink placeholder:text-stone-text focus:outline-none focus:border-ink text-sm"
             disabled={loading}
             required
           />
 
-          {error && (
-            <p className="text-red-400 text-sm mb-3">{error}</p>
-          )}
+          {error && <p className="text-rust text-sm mb-3">{error}</p>}
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3 bg-teal-500 hover:bg-teal-400 disabled:opacity-60 text-neutral-950 font-bold rounded-xl transition text-lg"
+            className="w-full py-3 bg-ink hover:bg-forest disabled:opacity-60 text-paper font-semibold transition-colors text-lg"
           >
             {loading ? "Redirecting…" : "Get Full Report — $129"}
           </button>
 
-          <p className="text-center text-xs text-neutral-500 mt-3">
+          <p className="text-center text-xs text-stone-text mt-3">
             Secure payment via Stripe · 30-day money-back guarantee
           </p>
         </form>

@@ -1,21 +1,34 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Fraunces, Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+// Editorial display face for oversized headings — the one place the brand
+// gets to show personality. Variable weight/optical-size axis gives real
+// headline character without a second font request.
+const fraunces = Fraunces({
+  variable: "--font-display",
+  subsets: ["latin"],
+  axes: ["opsz", "SOFT", "WONK"],
+});
+
+// Highly legible workhorse for body copy, UI labels, and findings — never
+// the display face, which would hurt long-form readability.
+const inter = Inter({
+  variable: "--font-sans",
   subsets: ["latin"],
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+// Technical/diagnostic text — evidence strings, IDs, metrics, confidence
+// scores — anywhere a reader should trust they're looking at raw data.
+const jetbrainsMono = JetBrains_Mono({
+  variable: "--font-mono",
   subsets: ["latin"],
 });
 
 export const metadata: Metadata = {
-  title: "UXAudit — Find the Revenue Hiding in Your UX",
+  title: "Grafter — Find what's holding your store back",
   description:
-    "AI-powered conversion intelligence for ecommerce. Get your UX score, revenue opportunity estimate, and the conversion signals quietly costing you sales — in 60 seconds.",
+    "An evidence-led ecommerce audit that shows you what needs attention, why it matters, and what to fix first.",
 };
 
 export default function RootLayout({
@@ -26,9 +39,9 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${fraunces.variable} ${inter.variable} ${jetbrainsMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col bg-neutral-950 text-neutral-100">
+      <body className="min-h-full flex flex-col bg-paper text-ink">
         {children}
       </body>
     </html>

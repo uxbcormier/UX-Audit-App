@@ -1,19 +1,60 @@
 @import "tailwindcss";
 
+/* Grafter design tokens — editorial intelligence: independent publication
+   meets commercial research tool. Restrained palette, strong editorial
+   typography, sharp rectangular surfaces instead of rounded dashboard
+   cards. See brand brief for the Acne Studios / Houseplant reference
+   points — this is an original translation of those principles, not a
+   reproduction of either. */
 :root {
-  --background: #0a0a0a;
-  --foreground: #f5f5f5;
+  --color-ink: #171714;
+  --color-paper: #f3f0e9;
+  --color-white: #ffffff;
+  --color-stone: #b9b3a9;
+  --color-stone-text: #716b5f; /* darkened for AA contrast on paper, stone itself is decorative-only */
+  --color-forest: #315a46;
+  --color-rust: #a64f36;
+
+  /* Status colors are reserved for meaning (pass/issue/warning), never
+     decoration — see components using --color-status-*. */
+  --color-status-critical: #a64f36;
+  --color-status-warning: #b8893f;
+  --color-status-good: #315a46;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-ink: var(--color-ink);
+  --color-paper: var(--color-paper);
+  --color-white: var(--color-white);
+  --color-stone: var(--color-stone);
+  --color-stone-text: var(--color-stone-text);
+  --color-forest: var(--color-forest);
+  --color-rust: var(--color-rust);
+  --font-display: var(--font-display);
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+}
+
+/* Editorial display type: oversized, confident, used sparingly. */
+.font-display {
+  font-family: var(--font-display), Georgia, serif;
+  font-feature-settings: "ss01" 1;
+}
+
+/* Technical/diagnostic text: evidence strings, IDs, metrics, confidence. */
+.font-data {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  letter-spacing: -0.01em;
+}
+
+/* A thin rule instead of a card border — the system's primary structural
+   device in place of rounded, shadowed panels. */
+.rule {
+  border-top: 1px solid var(--color-stone);
 }

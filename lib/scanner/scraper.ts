@@ -72,12 +72,12 @@ export class ScrapeError extends Error {
   }
 }
 
-const USER_AGENT = "Mozilla/5.0 (compatible; UXAuditBot/1.0; +https://uxaudit.io)";
+const USER_AGENT = "Mozilla/5.0 (compatible; GrafterBot/1.0; +https://grafter.app)";
 
 // Trips some basic anti-bot heuristics that block any automated browser on
 // sight, independent of the (honest, self-identifying) User-Agent above —
 // e.g. a naive check for `navigator.webdriver`. This doesn't hide who we
-// are — the UA above still identifies UXAuditBot for any site owner who
+// are — the UA above still identifies GrafterBot for any site owner who
 // wants to allowlist it — it just avoids the crudest "is this Playwright"
 // tells that would block us before that identity is even considered.
 const STEALTH_LAUNCH_ARGS = ["--disable-blink-features=AutomationControlled"];
