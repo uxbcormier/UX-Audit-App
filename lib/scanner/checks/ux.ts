@@ -1,5 +1,5 @@
 import type { ScrapedPage } from "../scraper";
-import type { AuditIssue } from "../types";
+import type { DraftIssue } from "../types";
 import { cite } from "../research";
 
 const AD_NETWORK_SIGNS =
@@ -13,8 +13,8 @@ function isHomeHref(href: string | undefined): boolean {
   return false;
 }
 
-export function runUxChecks(page: ScrapedPage): { issues: AuditIssue[]; limitations: string[] } {
-  const issues: AuditIssue[] = [];
+export function runUxChecks(page: ScrapedPage): { issues: DraftIssue[]; limitations: string[] } {
+  const issues: DraftIssue[] = [];
   const limitations: string[] = [];
   const { $ } = page;
 

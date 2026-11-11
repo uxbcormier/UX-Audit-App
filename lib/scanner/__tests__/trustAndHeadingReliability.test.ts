@@ -179,6 +179,7 @@ describe("dedup safety net", () => {
       category: "UX",
       metric: "Trust Coverage",
       severity: "low",
+      pageUrl: "https://example.com",
       title: "x",
       observation: "x",
       evidence: { type: "structural", detail: "x" },

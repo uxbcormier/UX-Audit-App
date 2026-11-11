@@ -12,10 +12,18 @@ import { classifyPage } from "./pageClassification";
 import { computeMetricResults, SEVERITY_WEIGHT } from "./metrics";
 import type {
   AuditIssue,
+  DraftIssue,
   FullResults,
   IssueCategory,
   TeaserResults,
 } from "./types";
+
+// Checks only ever see a ScrapedPage, not the URL it came from, so they
+// build DraftIssue (no pageUrl) and this stamps the real one on
+// immediately after each check runs — see DraftIssue's doc comment.
+function withPageUrl(issues: DraftIssue[], pageUrl: string): AuditIssue[] {
+  return issues.map((issue) => ({ ...issue, pageUrl }));
+}
 
 // Placeholder benchmark shown until the caller (app/api/scan/route.ts)
 // merges in a real one computed from our own scan history — kept here so
@@ -71,7 +79,7 @@ export async function scanProductPage(
   context: BrowserContext,
   homepage: ScrapedPage,
   baseUrl: string
-): Promise<{ issues: AuditIssue[]; limitations: string[]; productPageUrl: string | null }> {
+): Promise<{ issues: DraftIssue[]; limitations: string[]; productPageUrl: string | null }> {
   const lightOptions = { waitForNetworkIdle: true, captureScreenshot: false, navTimeoutMs: 10000 };
 
   try {
@@ -127,12 +135,17 @@ export async function runFullScan(url: string): Promise<{ teaser: TeaserResults;
     const { issues: trustIssues, limitations: trustLimitations } = runTrustChecks(page);
     const perfIssues = psResult ? runPerformanceChecks(psResult) : [];
 
+    // Product-page checks are stamped with the actual product page URL
+    // (falling back to the homepage URL only in the defensive case where
+    // productPageUrl somehow came back null alongside non-empty issues,
+    // which shouldn't happen but shouldn't produce an invalid pageUrl
+    // either if it did).
     const combinedIssues: AuditIssue[] = [
-      ...seoIssues,
-      ...uxIssues,
-      ...trustIssues,
-      ...perfIssues,
-      ...productIssues,
+      ...withPageUrl(seoIssues, url),
+      ...withPageUrl(uxIssues, url),
+      ...withPageUrl(trustIssues, url),
+      ...withPageUrl(perfIssues, url),
+      ...withPageUrl(productIssues, productPageUrl ?? url),
     ];
 
     // Defensive dedup: each check module only ever pushes a given issue id

@@ -1,9 +1,9 @@
 import type { PageSpeedResult } from "../pagespeed";
-import type { AuditIssue } from "../types";
+import type { DraftIssue } from "../types";
 import { cite } from "../research";
 
-export function runPerformanceChecks(ps: PageSpeedResult): AuditIssue[] {
-  const issues: AuditIssue[] = [];
+export function runPerformanceChecks(ps: PageSpeedResult): DraftIssue[] {
+  const issues: DraftIssue[] = [];
 
   if (ps.mobileScore < 50) {
     issues.push({

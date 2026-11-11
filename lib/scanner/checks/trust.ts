@@ -1,5 +1,5 @@
 import type { ScrapedPage } from "../scraper";
-import type { AuditIssue } from "../types";
+import type { DraftIssue } from "../types";
 import { cite } from "../research";
 import { normalizedBodyText } from "../normalize";
 
@@ -10,10 +10,10 @@ import { normalizedBodyText } from "../normalize";
 // instead of a confident defect claim.
 function emitAbsenceFinding(
   page: ScrapedPage,
-  issues: AuditIssue[],
+  issues: DraftIssue[],
   limitations: string[],
   limitationNote: string,
-  issue: AuditIssue
+  issue: DraftIssue
 ): void {
   if (!page.evidenceComplete) {
     limitations.push(limitationNote);
@@ -61,8 +61,8 @@ function hasPaymentIconEvidence(page: ScrapedPage, text: string): boolean {
   ).length > 0;
 }
 
-export function runTrustChecks(page: ScrapedPage): { issues: AuditIssue[]; limitations: string[] } {
-  const issues: AuditIssue[] = [];
+export function runTrustChecks(page: ScrapedPage): { issues: DraftIssue[]; limitations: string[] } {
+  const issues: DraftIssue[] = [];
   const limitations: string[] = [];
   const { $ } = page;
   const text = normalizedBodyText(page);

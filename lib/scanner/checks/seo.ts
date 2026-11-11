@@ -1,8 +1,8 @@
 import type { ScrapedPage } from "../scraper";
-import type { AuditIssue } from "../types";
+import type { DraftIssue } from "../types";
 
-export function runSeoChecks(page: ScrapedPage): { issues: AuditIssue[]; limitations: string[] } {
-  const issues: AuditIssue[] = [];
+export function runSeoChecks(page: ScrapedPage): { issues: DraftIssue[]; limitations: string[] } {
+  const issues: DraftIssue[] = [];
   const limitations: string[] = [];
 
   if (!page.title) {
@@ -144,6 +144,7 @@ export function runSeoChecks(page: ScrapedPage): { issues: AuditIssue[]; limitat
         type: "count",
         detail: `${page.h1s.length} <h1> elements found on the homepage (expected exactly 1).`,
         value: page.h1s.length,
+        examples: page.h1s.slice(0, 3),
       },
       behavioralExplanation:
         "Competing headlines dilute the page's focus, making it harder for both crawlers and shoppers to tell what matters most.",
@@ -156,19 +157,25 @@ export function runSeoChecks(page: ScrapedPage): { issues: AuditIssue[]; limitat
     });
   }
 
-  const imagesWithoutAlt = page.images.filter((img) => !img.hasAlt).length;
+  // Only images missing the alt attribute entirely count — alt="" (empty)
+  // is the correct, deliberate way to mark an image decorative, and is
+  // never a violation. See scraper.ts's isMissingAlt for the full logic.
+  const missingAltImages = page.images.filter((img) => img.isMissingAlt);
+  const imagesWithoutAlt = missingAltImages.length;
   if (imagesWithoutAlt > 0) {
+    const examples = missingAltImages.slice(0, 3).map((img) => img.src || "(no src)");
     issues.push({
       id: "seo-images-missing-alt",
       category: "SEO",
       metric: "Search Experience",
       severity: "warning",
       title: `${imagesWithoutAlt} image${imagesWithoutAlt > 1 ? "s" : ""} missing alt text`,
-      observation: `${imagesWithoutAlt} image${imagesWithoutAlt > 1 ? "s" : ""} on the homepage have no alt text.`,
+      observation: `${imagesWithoutAlt} image${imagesWithoutAlt > 1 ? "s" : ""} on the homepage have no alt attribute at all (images deliberately marked decorative with alt="" are not counted).`,
       evidence: {
         type: "count",
         detail: `${imagesWithoutAlt} of ${page.images.length} <img> elements have no alt attribute.`,
         value: imagesWithoutAlt,
+        examples,
       },
       behavioralExplanation:
         "Screen reader users and image-search crawlers get no information about what's in the photo, so product imagery contributes nothing to discovery or accessibility.",

@@ -42,6 +42,11 @@ export interface Evidence {
   type: EvidenceType;
   detail: string;
   value?: string | number;
+  // Representative, real affected elements (image src values, heading
+  // text, etc.) — never fabricated, only ever populated from data the
+  // check actually collected. Capped at a few examples per finding, not a
+  // full dump. Shown behind an expandable disclosure in the report.
+  examples?: string[];
 }
 
 export interface ResearchCitation {
@@ -74,7 +79,13 @@ export interface ResearchCitation {
 // from `businessImpact` below, which is a separate, qualitative judgment
 // about consequence (not a confidence level) — the two must never be
 // conflated into one number.
-export interface AuditIssue {
+// What an individual check builds — everything about a finding EXCEPT
+// which page it was observed on, since a check only ever sees a
+// ScrapedPage, not the URL it came from. index.ts stamps pageUrl on
+// immediately after each check runs, producing the final AuditIssue below.
+// Kept as two types rather than one optional field so it's a compile error
+// to forget to stamp pageUrl on some new check's output.
+export interface DraftIssue {
   id: string;
   category: IssueCategory;
   metric: ProprietaryMetric;
@@ -90,6 +101,13 @@ export interface AuditIssue {
   recommendation: string; // paid-only: actionable remediation
   sourceLabel: SourceLabel;
   researchContext?: ResearchCitation[];
+}
+
+export interface AuditIssue extends DraftIssue {
+  // The specific page this finding was observed on — stamped on in
+  // index.ts (see DraftIssue) so every finding can say exactly where it
+  // applies rather than leaving that implicit.
+  pageUrl: string;
 }
 
 export interface MetricResult {

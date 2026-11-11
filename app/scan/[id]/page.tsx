@@ -98,29 +98,102 @@ const SOURCE_LABEL_INFO: Record<SourceLabel, { text: string; icon: React.ReactNo
   },
 };
 
+function scoreBarColor(score: number): string {
+  return score >= 80 ? "bg-forest" : score >= 60 ? "bg-amber-800" : "bg-rust";
+}
+
+function scoreTextColor(score: number): string {
+  return score >= 80 ? "text-forest" : score >= 60 ? "text-amber-800" : "text-rust";
+}
+
+// A short, literal interpretation of the score itself — not a claim about
+// conversion, revenue, or anything the scan didn't measure directly.
+function interpretScore(score: number): string {
+  if (score >= 85) return "Strong — few verified issues found; the gaps that remain are worth closing.";
+  if (score >= 70) return "Solid overall, with specific, fixable gaps.";
+  if (score >= 50) return "Room for improvement across several areas.";
+  return "Several high-impact issues were verified — worth addressing before anything else.";
+}
+
+// A discrete, non-gradient scale (0–59 / 60–79 / 80–100) with a marker at
+// the actual score, so the number has a visible frame of reference without
+// implying false precision via a smooth gradient.
+function ScoreScale({ score }: { score: number }) {
+  return (
+    <div className="max-w-xs mt-5">
+      <div className="relative h-1.5 w-full bg-stone/25">
+        <div className="absolute inset-y-0 left-0 bg-rust/30" style={{ width: "60%" }} />
+        <div className="absolute inset-y-0 bg-amber-800/30" style={{ left: "60%", width: "20%" }} />
+        <div className="absolute inset-y-0 bg-forest/30" style={{ left: "80%", width: "20%" }} />
+        <div
+          className="absolute -top-[3px] w-0.5 h-3 bg-ink"
+          style={{ left: `${Math.min(99.5, Math.max(0, score))}%` }}
+        />
+      </div>
+      <div className="flex justify-between text-[10px] text-stone-text mt-1">
+        <span>0</span>
+        <span>60</span>
+        <span>80</span>
+        <span>100</span>
+      </div>
+    </div>
+  );
+}
+
 function ScoreHero({
   score,
   industry,
   benchmark,
   totalIssueCount,
+  unableToVerifyCount,
+  categorySummary,
 }: {
   score: number;
   industry: string;
   benchmark: TeaserResults["benchmark"];
   totalIssueCount: number;
+  unableToVerifyCount: number;
+  categorySummary: TeaserResults["categorySummary"];
 }) {
-  const color = score >= 80 ? "text-forest" : score >= 60 ? "text-amber-800" : "text-rust";
   const hasRealSample = benchmark.sampleSize > 0;
+  const categoryEntries = Object.entries(categorySummary).filter(([, count]) => count > 0);
 
   return (
     <div className="flex flex-col items-start text-left">
       <span className="font-display text-7xl sm:text-8xl tracking-tight" style={{ lineHeight: 1 }}>
-        <span className={color}>{score}</span>
+        <span className={scoreTextColor(score)}>{score}</span>
       </span>
       <span className="text-xs uppercase tracking-[0.2em] text-stone-text mt-2">UX Score</span>
-      <p className="text-sm text-stone-text mt-4 max-w-sm leading-relaxed">
-        This score reflects severity-weighted evidence gaps across your experience — not a measured conversion rate.
+
+      <ScoreScale score={score} />
+
+      <p className="text-sm text-ink mt-4 max-w-sm leading-relaxed font-medium">{interpretScore(score)}</p>
+      <p className="text-xs text-stone-text mt-1 max-w-sm leading-relaxed">
+        Reflects severity-weighted, verified evidence gaps — not a measured conversion rate.
       </p>
+
+      {categoryEntries.length > 0 && (
+        <p className="text-xs text-stone-text mt-4">
+          {categoryEntries.map(([cat, count], i) => (
+            <span key={cat}>
+              {i > 0 && " · "}
+              <span className="text-ink">{count}</span> {cat}
+            </span>
+          ))}
+        </p>
+      )}
+
+      <p className="text-xs text-stone-text mt-2">
+        <span className="text-ink">{totalIssueCount}</span> verified finding{totalIssueCount !== 1 ? "s" : ""}
+        {unableToVerifyCount > 0 && (
+          <>
+            {" "}
+            · <span className="text-ink">{unableToVerifyCount}</span> check{unableToVerifyCount !== 1 ? "s" : ""}{" "}
+            could not be verified
+          </>
+        )}
+      </p>
+
       <p className="text-xs text-stone-text mt-3">
         {hasRealSample ? (
           <>
@@ -150,48 +223,93 @@ function ScoreHero({
       <span className="inline-flex items-center gap-1.5 mt-2 text-[10px] font-medium uppercase tracking-wide text-stone-text border border-stone px-2.5 py-0.5">
         {benchmark.label}
       </span>
-      <span className="inline-flex items-center gap-1.5 mt-5 text-xs font-medium text-forest border border-forest/40 px-3 py-1">
-        {totalIssueCount} finding{totalIssueCount !== 1 ? "s" : ""} detected
-      </span>
     </div>
   );
 }
 
-function MetricsGrid({ metrics, locked }: { metrics: TeaserResults["metrics"]; locked: boolean }) {
+// Horizontal-bar breakdown by proprietary metric — replaces the previous
+// locked grid of bare numbers. A metric that wasn't evaluated gets an
+// explanatory line instead of an empty/zero-width bar, per "don't show
+// empty charts or placeholder values."
+function MetricRow({ m }: { m: TeaserResults["metrics"][number] }) {
+  return (
+    <div className="py-3 flex items-center gap-4">
+      <p className="w-36 sm:w-44 shrink-0 text-xs font-medium text-ink leading-tight">{m.metric}</p>
+      {m.evaluated && m.score !== null ? (
+        <>
+          <div className="flex-1 h-2 bg-stone/20 min-w-0">
+            <div className={`h-full ${scoreBarColor(m.score)}`} style={{ width: `${m.score}%` }} />
+          </div>
+          <span className={`w-8 shrink-0 text-right font-mono text-sm ${scoreTextColor(m.score)}`}>{m.score}</span>
+        </>
+      ) : (
+        <p className="flex-1 text-xs text-stone-text italic">{m.evidenceNote}</p>
+      )}
+    </div>
+  );
+}
+
+// Free tier shows the first 2 categories for real (so this section always
+// has genuine content, never a blank/mostly-empty box) and a compact
+// unlock prompt in place of the rest — rather than blurring all 8 full
+// rows, which rendered as a large, nearly empty void.
+function MetricsBars({ metrics, locked }: { metrics: TeaserResults["metrics"]; locked: boolean }) {
   const ordered = METRIC_ORDER.map((m) => metrics.find((r) => r.metric === m)).filter(
     (m): m is TeaserResults["metrics"][number] => Boolean(m)
   );
 
+  if (!locked) {
+    return (
+      <div className="flex flex-col divide-y divide-stone border-t border-b border-stone">
+        {ordered.map((m) => (
+          <MetricRow key={m.metric} m={m} />
+        ))}
+      </div>
+    );
+  }
+
+  const visible = ordered.slice(0, 2);
+  const hidden = ordered.slice(2);
+  const sampleNames = hidden.slice(0, 2).map((m) => m.metric).join(" and ");
+
   return (
-    <div className={`relative grid grid-cols-2 sm:grid-cols-4 gap-px bg-stone ${locked ? "select-none" : ""}`}>
-      {locked && (
-        <div className="absolute inset-0 z-10 backdrop-blur-sm bg-paper/85 flex items-center justify-center">
-          <span className="text-sm text-stone-text flex items-center gap-1.5">
-            <Lock size={14} /> Full breakdown locked
-          </span>
-        </div>
-      )}
-      {ordered.map((m) => (
-        <div key={m.metric} className="bg-white p-4">
-          <p className="text-[11px] font-medium uppercase tracking-wide text-stone-text mb-1.5 leading-tight">
-            {m.metric}
-          </p>
-          {m.evaluated && m.score !== null ? (
-            <>
-              <span
-                className={`font-display text-2xl ${
-                  m.score >= 80 ? "text-forest" : m.score >= 60 ? "text-amber-800" : "text-rust"
-                }`}
-              >
-                {m.score}
-              </span>
-              <p className="text-[11px] text-stone-text mt-0.5">{m.evidenceNote}</p>
-            </>
-          ) : (
-            <p className="text-xs text-stone-text italic mt-1">{m.evidenceNote}</p>
-          )}
-        </div>
+    <div className="flex flex-col divide-y divide-stone border-t border-stone">
+      {visible.map((m) => (
+        <MetricRow key={m.metric} m={m} />
       ))}
+      <div className="py-4 flex items-center justify-between gap-3 border-b border-stone">
+        <span className="text-xs text-stone-text">
+          +{hidden.length} more categor{hidden.length === 1 ? "y" : "ies"}
+          {sampleNames ? `, including ${sampleNames}` : ""}
+        </span>
+        <span className="text-xs font-medium text-forest flex items-center gap-1 shrink-0">
+          <Lock size={12} /> Unlock
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function EvidenceBlock({ issue }: { issue: AuditIssue }) {
+  const hasExamples = Boolean(issue.evidence.examples && issue.evidence.examples.length > 0);
+  return (
+    <div className="bg-paper border border-stone px-3 py-2">
+      <p className="text-[10px] font-semibold uppercase tracking-wide text-stone-text mb-1">Evidence</p>
+      <p className="font-mono text-xs text-stone-text">{issue.evidence.detail}</p>
+      {hasExamples && (
+        <details className="mt-2">
+          <summary className="text-[11px] text-forest cursor-pointer select-none">
+            Show affected elements ({issue.evidence.examples!.length})
+          </summary>
+          <ul className="mt-1.5 flex flex-col gap-1">
+            {issue.evidence.examples!.map((ex, i) => (
+              <li key={i} className="font-mono text-[11px] text-stone-text break-all border-l-2 border-stone pl-2">
+                {ex}
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
     </div>
   );
 }
@@ -217,7 +335,12 @@ function IssueCard({ issue, blurred }: { issue: AuditIssue; blurred?: boolean })
           {issue.severity}
         </span>
       </div>
-      <h3 className="font-display text-lg text-ink mb-2">{issue.title}</h3>
+      <h3 className="font-display text-lg text-ink mb-1">{issue.title}</h3>
+      {!blurred && (
+        <p className="text-xs text-stone-text mb-3 truncate" title={issue.pageUrl}>
+          {issue.pageUrl}
+        </p>
+      )}
       <div className="flex flex-wrap items-center gap-2 mb-3">
         <span
           className={`text-[10px] font-medium uppercase tracking-wide px-2 py-0.5 border ${PRIORITY_COLOR[priority]}`}
@@ -234,10 +357,7 @@ function IssueCard({ issue, blurred }: { issue: AuditIssue; blurred?: boolean })
       {!blurred && (
         <div className="flex flex-col gap-2 text-sm text-ink">
           <p>{issue.observation}</p>
-          <div className="bg-paper border border-stone px-3 py-2">
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-stone-text mb-1">Evidence</p>
-            <p className="font-mono text-xs text-stone-text">{issue.evidence.detail}</p>
-          </div>
+          <EvidenceBlock issue={issue} />
           <p className="text-stone-text">{issue.behavioralExplanation}</p>
           <p className="text-stone-text">{issue.businessImplication}</p>
           {issue.researchContext && issue.researchContext.length > 0 && (
@@ -254,7 +374,7 @@ function IssueCard({ issue, blurred }: { issue: AuditIssue; blurred?: boolean })
           )}
         </div>
       )}
-      <div className="flex items-center gap-3 mt-3 text-xs">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-3 text-xs">
         <span className={`font-medium ${BUSINESS_IMPACT_COLOR[issue.businessImpact]}`}>
           {issue.businessImpact.charAt(0).toUpperCase() + issue.businessImpact.slice(1)} business impact
         </span>
@@ -273,13 +393,37 @@ function IssueCard({ issue, blurred }: { issue: AuditIssue; blurred?: boolean })
   );
 }
 
+// The single highest-priority verified finding, surfaced directly beneath
+// the score — answers "what's the one thing I should look at" instead of
+// making the visitor open a card to find out.
+function PriorityOpportunityCard({ issue }: { issue: AuditIssue }) {
+  return (
+    <div className="border border-ink p-5">
+      <div className="flex items-center justify-between gap-3 mb-2">
+        <span className="text-xs font-semibold uppercase tracking-wide px-2 py-0.5 border border-ink">
+          {issue.severity}
+        </span>
+        <span className="text-xs text-stone-text">{EFFORT_LABEL[issue.effort]}</span>
+      </div>
+      <h3 className="font-display text-xl text-ink mb-1">{issue.title}</h3>
+      <p className="text-xs text-stone-text mb-3 truncate" title={issue.pageUrl}>
+        {issue.pageUrl}
+      </p>
+      <p className="text-sm text-ink mb-2">{issue.observation}</p>
+      <p className="text-sm text-stone-text mb-3">{issue.businessImplication}</p>
+      <p className="text-sm text-ink border-t border-stone pt-2">
+        <span className="text-forest font-medium">Recommendation: </span>
+        {issue.recommendation}
+      </p>
+    </div>
+  );
+}
+
 export default function ScanPage() {
   const { id } = useParams<{ id: string }>();
   const searchParams = useSearchParams();
   const [scan, setScan] = useState<ScanData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [showPaywall, setShowPaywall] = useState(false);
-  const [userMonthlyRevenue, setUserMonthlyRevenue] = useState("");
 
   const paymentResult = searchParams.get("payment");
 
@@ -324,6 +468,16 @@ export default function ScanPage() {
     );
   }
 
+  return <ScanResultsView scan={scan} paymentResult={paymentResult} />;
+}
+
+// Pure presentation, split out from ScanPage so it can be fed real fetched
+// data OR (in local/manual QA only) hand-built mock data without touching
+// the fetch/poll logic above.
+export function ScanResultsView({ scan, paymentResult }: { scan: ScanData; paymentResult: string | null }) {
+  const [showPaywall, setShowPaywall] = useState(false);
+  const [userMonthlyRevenue, setUserMonthlyRevenue] = useState("");
+
   const isRunning = scan.status === "PENDING" || scan.status === "RUNNING";
   const isFailed = scan.status === "FAILED";
   const teaser = scan.teaserResults;
@@ -337,6 +491,7 @@ export default function ScanPage() {
       ? computeDirectionalRevenueEstimate(results.overallScore, parsedUserRevenue)
       : null;
   const highImpactCount = results?.revenueOpportunity.highImpactCount ?? 0;
+  const topIssue = results?.issues[0] ?? null;
 
   return (
     <main className="min-h-screen bg-paper">
@@ -351,11 +506,11 @@ export default function ScanPage() {
         </div>
       </nav>
 
-      <div className="max-w-3xl mx-auto px-6 py-14">
+      <div className="max-w-3xl mx-auto px-5 sm:px-6 py-8 sm:py-10">
         {/* Running state */}
         {isRunning && (
-          <div className="text-center py-24">
-            <div className="w-16 h-16 border-4 border-forest border-t-transparent rounded-full animate-spin mx-auto mb-6" />
+          <div className="text-center py-16">
+            <div className="w-14 h-14 border-4 border-forest border-t-transparent rounded-full animate-spin mx-auto mb-5" />
             <h2 className="font-display text-2xl text-ink mb-2">Auditing your store…</h2>
             <p className="text-stone-text">
               Checking performance, SEO, UX, and trust signals. This takes about 30–60 seconds.
@@ -365,8 +520,8 @@ export default function ScanPage() {
 
         {/* Failed state */}
         {isFailed && (
-          <div className="text-center py-24 max-w-lg mx-auto">
-            <AlertTriangle size={48} className="text-rust mx-auto mb-4" />
+          <div className="text-center py-16 max-w-lg mx-auto">
+            <AlertTriangle size={40} className="text-rust mx-auto mb-4" />
             <h2 className="font-display text-2xl text-ink mb-2">Scan failed</h2>
             {scan.failureReason === "blocked" ? (
               <>
@@ -411,7 +566,7 @@ export default function ScanPage() {
 
         {/* Payment success banner */}
         {paymentResult === "success" && scan.isPaid && (
-          <div className="flex items-center gap-3 bg-forest/5 border border-forest/40 px-5 py-4 mb-10">
+          <div className="flex items-center gap-3 bg-forest/5 border border-forest/40 px-5 py-4 mb-8">
             <CheckCircle size={20} className="text-forest shrink-0" />
             <div>
               <p className="font-semibold text-forest">Payment successful!</p>
@@ -426,7 +581,7 @@ export default function ScanPage() {
         {scan.status === "COMPLETE" && results && (
           <>
             {/* Screenshot */}
-            <section className="mb-12">
+            <section className="mb-8">
               {results.screenshotUrl && (
                 <div className="border border-stone overflow-hidden bg-white">
                   <div className="flex items-center gap-2 px-3 py-2 bg-paper border-b border-stone">
@@ -457,51 +612,58 @@ export default function ScanPage() {
             </section>
 
             {/* 1. Score */}
-            <section className="mb-16">
+            <section className="mb-10">
               <ScoreHero
                 score={results.overallScore}
                 industry={results.industry}
                 benchmark={results.benchmark}
                 totalIssueCount={results.totalIssueCount}
+                unableToVerifyCount={results.limitations.length}
+                categorySummary={results.categorySummary}
               />
             </section>
 
-            {/* 2. Revenue Opportunity */}
-            <section className="mb-16 border-t border-stone pt-12">
+            {/* 2. Priority Opportunities / Revenue Opportunity */}
+            <section className="mb-10 border-t border-stone pt-8">
               <div className="flex items-center gap-2 text-rust mb-4">
                 <TrendingUp size={16} />
-                <span className="text-xs font-semibold uppercase tracking-[0.15em]">Revenue Opportunity Detected</span>
+                <span className="text-xs font-semibold uppercase tracking-[0.15em]">
+                  {directionalEstimate ? "Revenue Opportunity" : "Priority Opportunities"}
+                </span>
               </div>
 
-              {directionalEstimate ? (
+              {directionalEstimate && (
                 <>
                   <p className="font-display text-3xl sm:text-4xl text-ink mb-1">
                     +{directionalEstimate.conversionLiftLow}–{directionalEstimate.conversionLiftHigh}%
                   </p>
-                  <p className="text-sm text-stone-text mb-8">Directional conversion lift range</p>
+                  <p className="text-sm text-stone-text mb-6">Directional conversion lift range</p>
 
                   <p className="font-display text-2xl sm:text-3xl text-rust mb-1">
                     ${directionalEstimate.monthlyLossLow.toLocaleString()}–$
                     {directionalEstimate.monthlyLossHigh.toLocaleString()}
                     <span className="text-base text-stone-text font-sans font-normal">/month</span>
                   </p>
-                  <p className="text-sm text-stone-text mb-4">
+                  <p className="text-sm text-stone-text mb-3">
                     Roughly ${directionalEstimate.annualLossLow.toLocaleString()}–$
                     {directionalEstimate.annualLossHigh.toLocaleString()} annually, based on the $
                     {directionalEstimate.monthlyRevenueInput.toLocaleString()}/month you entered.
                   </p>
                   <p className="text-xs text-stone-text mb-6 italic">{directionalEstimate.disclaimer}</p>
                 </>
-              ) : (
-                <>
-                  <p className="font-display text-xl sm:text-2xl text-ink mb-2 max-w-md">
-                    {highImpactCount} high-impact opportunit{highImpactCount === 1 ? "y" : "ies"} identified in this scan.
-                  </p>
-                  <p className="text-sm text-stone-text mb-6 max-w-md">
-                    The full report details every opportunity, ranked by business impact and effort
-                    to fix. Enter your monthly revenue below for a directional dollar estimate.
-                  </p>
-                </>
+              )}
+
+              {!directionalEstimate && (
+                <p className="text-sm text-stone-text mb-5 max-w-md">
+                  {highImpactCount} high-impact opportunit{highImpactCount === 1 ? "y" : "ies"} verified in this
+                  scan, ranked by business impact and effort to fix. Here&apos;s the top one:
+                </p>
+              )}
+
+              {topIssue && (
+                <div className="mb-5">
+                  <PriorityOpportunityCard issue={topIssue} />
+                </div>
               )}
 
               <div className="bg-white border border-stone px-4 py-3 mb-4">
@@ -533,21 +695,21 @@ export default function ScanPage() {
             </section>
 
             {/* 3. Business Impact Areas (proprietary metrics) */}
-            <section className="mb-16 border-t border-stone pt-12">
+            <section className="mb-10 border-t border-stone pt-8">
               <h2 className="text-xs font-semibold uppercase tracking-[0.15em] text-stone-text mb-1">
                 Business Impact Areas
               </h2>
-              <p className="text-xs text-stone-text mb-5">
+              <p className="text-xs text-stone-text mb-4">
                 Each score is derived only from evidence this scan could actually observe — areas we
                 couldn&apos;t assess (e.g. checkout, without a product page) are marked as such rather
                 than guessed.
               </p>
-              <MetricsGrid metrics={results.metrics} locked={!scan.isPaid} />
+              <MetricsBars metrics={results.metrics} locked={!scan.isPaid} />
             </section>
 
             {/* 4. High Impact Insights */}
-            <section className="mb-12 border-t border-stone pt-12">
-              <h2 className="text-xs font-semibold uppercase tracking-[0.15em] text-stone-text mb-5">
+            <section className="mb-8 border-t border-stone pt-8">
+              <h2 className="text-xs font-semibold uppercase tracking-[0.15em] text-stone-text mb-4">
                 {scan.isPaid ? "All findings" : "High Impact Findings"}
               </h2>
 
@@ -560,20 +722,22 @@ export default function ScanPage() {
 
             {/* 5. Paywall */}
             {!scan.isPaid && (
-              <section className="mb-16 bg-white border border-stone p-8 sm:p-10 text-center">
-                <Lock size={28} className="mx-auto mb-4 text-forest" />
+              <section className="mb-10 bg-white border border-stone p-6 sm:p-8 text-center">
+                <Lock size={26} className="mx-auto mb-4 text-forest" />
                 <h2 className="font-display text-2xl sm:text-3xl text-ink mb-2">
                   See the complete evidence-led audit.
                 </h2>
                 <p className="text-stone-text mb-6 text-sm">
                   {results.totalIssueCount} findings detected. You&apos;ve only seen 2.
                 </p>
-                <ul className="text-sm text-stone-text mb-8 flex flex-col gap-1.5 max-w-sm mx-auto text-left">
+                <ul className="text-sm text-stone-text mb-8 flex flex-col gap-2 max-w-sm mx-auto text-left">
                   {[
-                    "Every finding with full evidence and research context",
-                    "Step-by-step recommendations for every issue",
-                    "Full Business Impact Area breakdown",
-                    "Priority ranking by impact and effort",
+                    "Complete evidence for every verified finding — not just a summary",
+                    "Affected elements and page screenshots where available",
+                    "Recommendations prioritized by business impact and effort",
+                    "Developer-ready implementation guidance for every fix",
+                    "Full Business Impact Area breakdown across all 8 categories",
+                    "Research references, where independently verified",
                   ].map((item) => (
                     <li key={item} className="flex items-start gap-2">
                       <CheckCircle size={15} className="text-forest shrink-0 mt-0.5" />
@@ -594,19 +758,17 @@ export default function ScanPage() {
             )}
 
             {/* 6. Audit area breakdown */}
-            <section className="border-t border-stone pt-12">
-              <h2 className="text-xs font-semibold uppercase tracking-[0.15em] text-stone-text mb-5">
+            <section className="border-t border-stone pt-8">
+              <h2 className="text-xs font-semibold uppercase tracking-[0.15em] text-stone-text mb-4">
                 Findings by Audit Area
               </h2>
 
-              <div className={`relative grid grid-cols-2 sm:grid-cols-4 gap-px bg-stone ${!scan.isPaid ? "select-none" : ""}`}>
-                {!scan.isPaid && (
-                  <div className="absolute inset-0 z-10 backdrop-blur-sm bg-paper/85 flex items-center justify-center">
-                    <span className="text-sm text-stone-text flex items-center gap-1.5">
-                      <Lock size={14} /> Full analysis locked
-                    </span>
-                  </div>
-                )}
+              {/* Not gated: this is the same per-category count already
+                  shown unlocked next to the score above — locking a
+                  second view of the same numbers added nothing but an
+                  empty-looking box, which is exactly what this report is
+                  meant to avoid. */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-px bg-stone">
                 {Object.entries(results.categorySummary)
                   .filter(([, count]) => count > 0)
                   .map(([cat, count]) => (
@@ -621,7 +783,7 @@ export default function ScanPage() {
 
             {/* Full report recommendations */}
             {scan.isPaid && full?.recommendations && full.recommendations.length > 0 && (
-              <section className="bg-white border border-stone p-6 mt-10">
+              <section className="bg-white border border-stone p-6 mt-8">
                 <h2 className="font-display text-lg text-ink mb-4">Priority recommendations</h2>
                 <ul className="flex flex-col gap-2">
                   {full.recommendations.map((rec, i) => (

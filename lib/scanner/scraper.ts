@@ -40,7 +40,7 @@ export interface ScrapedPage {
   metaDescription: string;
   h1s: string[];
   h2s: string[];
-  images: { src: string; alt: string; hasAlt: boolean }[];
+  images: { src: string; alt: string; hasAlt: boolean; isDecorative: boolean; isMissingAlt: boolean }[];
   links: { href: string; text: string }[];
   hasSSL: boolean;
   statusCode: number;
@@ -273,11 +273,28 @@ export async function scrapeWithContext(
       : null;
 
     const images = $("img")
-      .map((_, el) => ({
-        src: $(el).attr("src") ?? "",
-        alt: $(el).attr("alt") ?? "",
-        hasAlt: Boolean($(el).attr("alt")),
-      }))
+      .map((_, el) => {
+        const $el = $(el);
+        const altAttr = $el.attr("alt");
+        const role = ($el.attr("role") ?? "").toLowerCase();
+        // alt="" (attribute present but empty) is the standard, correct way
+        // to mark an image as decorative — that is NOT a missing-alt
+        // violation, it's a deliberate accessibility choice. Only the
+        // attribute being absent entirely (or the image being otherwise
+        // marked decorative via role/aria-hidden) should NOT count as a
+        // violation either; a true violation is an absent alt attribute on
+        // an image that isn't marked decorative by any other means.
+        const isDecorative =
+          altAttr === "" || role === "presentation" || role === "none" || $el.attr("aria-hidden") === "true";
+        const isMissingAlt = altAttr === undefined && !isDecorative;
+        return {
+          src: $el.attr("src") ?? "",
+          alt: altAttr ?? "",
+          hasAlt: altAttr !== undefined,
+          isDecorative,
+          isMissingAlt,
+        };
+      })
       .get();
 
     const links = $("a")

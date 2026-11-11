@@ -1,5 +1,5 @@
 import type { ScrapedPage } from "../scraper";
-import type { AuditIssue } from "../types";
+import type { DraftIssue } from "../types";
 import { cite } from "../research";
 import { normalizedBodyText } from "../normalize";
 import { classifyPage, type PageClassification } from "../pageClassification";
@@ -12,8 +12,8 @@ export function runProductChecks(
   page: ScrapedPage,
   productUrl: string,
   classification: PageClassification = classifyPage(page, productUrl)
-): { issues: AuditIssue[]; limitations: string[] } {
-  const issues: AuditIssue[] = [];
+): { issues: DraftIssue[]; limitations: string[] } {
+  const issues: DraftIssue[] = [];
   const limitations: string[] = [];
   const { $ } = page;
   const text = normalizedBodyText(page);
