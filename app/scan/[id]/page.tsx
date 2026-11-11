@@ -19,7 +19,6 @@ import {
 import Link from "next/link";
 import type { TeaserResults, FullResults, AuditIssue, ProprietaryMetric, SourceLabel } from "@/lib/scanner/types";
 import { derivePriority } from "@/lib/scanner/priority";
-import { computeDirectionalRevenueEstimate } from "@/lib/scanner/revenue";
 import PaywallModal from "@/components/PaywallModal";
 
 interface ScanData {
@@ -194,6 +193,13 @@ function ScoreHero({
         )}
       </p>
 
+      <p className="text-[11px] text-stone-text mt-3 max-w-sm leading-relaxed italic">
+        Scores are calculated the same way every time from this scan&apos;s findings — the same site
+        can still score differently between scans if the page itself changed, or if Google&apos;s
+        live PageSpeed measurement (which has real run-to-run variance) crossed a threshold
+        differently.
+      </p>
+
       <p className="text-xs text-stone-text mt-3">
         {hasRealSample ? (
           <>
@@ -227,65 +233,69 @@ function ScoreHero({
   );
 }
 
-// Horizontal-bar breakdown by proprietary metric — replaces the previous
-// locked grid of bare numbers. A metric that wasn't evaluated gets an
-// explanatory line instead of an empty/zero-width bar, per "don't show
-// empty charts or placeholder values."
+// Every row carries its own one-line description — a score is never shown
+// without saying what it measures. Scoring direction is identical and
+// stated once for the whole section (see the disclosure above the list):
+// 0-100, higher is always better, with no category inverted.
 function MetricRow({ m }: { m: TeaserResults["metrics"][number] }) {
   return (
     <div className="py-3 flex items-center gap-4">
-      <p className="w-36 sm:w-44 shrink-0 text-xs font-medium text-ink leading-tight">{m.metric}</p>
-      {m.evaluated && m.score !== null ? (
-        <>
-          <div className="flex-1 h-2 bg-stone/20 min-w-0">
-            <div className={`h-full ${scoreBarColor(m.score)}`} style={{ width: `${m.score}%` }} />
-          </div>
-          <span className={`w-8 shrink-0 text-right font-mono text-sm ${scoreTextColor(m.score)}`}>{m.score}</span>
-        </>
-      ) : (
-        <p className="flex-1 text-xs text-stone-text italic">{m.evidenceNote}</p>
-      )}
+      <div className="w-32 sm:w-40 shrink-0">
+        <p className="text-xs font-medium text-ink leading-tight">{m.metric}</p>
+        <p className="text-[10px] text-stone-text leading-tight mt-0.5">{m.description}</p>
+      </div>
+      <div className="flex-1 h-2 bg-stone/20 min-w-0">
+        <div className={`h-full ${scoreBarColor(m.score!)}`} style={{ width: `${m.score}%` }} />
+      </div>
+      <span className={`w-8 shrink-0 text-right font-mono text-sm ${scoreTextColor(m.score!)}`}>{m.score}</span>
     </div>
   );
 }
 
-// Free tier shows the first 2 categories for real (so this section always
-// has genuine content, never a blank/mostly-empty box) and a compact
-// unlock prompt in place of the rest — rather than blurring all 8 full
-// rows, which rendered as a large, nearly empty void.
+// Metrics this scan genuinely could not assess are never shown as a bar —
+// not even an explanatory placeholder row — per "remove categories that
+// have insufficient data." They're named once, compactly, in a single
+// footnote instead, so nothing is silently hidden but nothing resembling
+// an empty chart is rendered either.
 function MetricsBars({ metrics, locked }: { metrics: TeaserResults["metrics"]; locked: boolean }) {
   const ordered = METRIC_ORDER.map((m) => metrics.find((r) => r.metric === m)).filter(
     (m): m is TeaserResults["metrics"][number] => Boolean(m)
   );
+  const evaluated = ordered.filter((m) => m.evaluated && m.score !== null);
+  const notAssessed = ordered.filter((m) => !m.evaluated || m.score === null);
 
-  if (!locked) {
-    return (
-      <div className="flex flex-col divide-y divide-stone border-t border-b border-stone">
-        {ordered.map((m) => (
-          <MetricRow key={m.metric} m={m} />
-        ))}
-      </div>
-    );
-  }
-
-  const visible = ordered.slice(0, 2);
-  const hidden = ordered.slice(2);
-  const sampleNames = hidden.slice(0, 2).map((m) => m.metric).join(" and ");
+  const visible = locked ? evaluated.slice(0, 2) : evaluated;
+  const hiddenCount = locked ? evaluated.length - visible.length : 0;
 
   return (
-    <div className="flex flex-col divide-y divide-stone border-t border-stone">
-      {visible.map((m) => (
-        <MetricRow key={m.metric} m={m} />
-      ))}
-      <div className="py-4 flex items-center justify-between gap-3 border-b border-stone">
-        <span className="text-xs text-stone-text">
-          +{hidden.length} more categor{hidden.length === 1 ? "y" : "ies"}
-          {sampleNames ? `, including ${sampleNames}` : ""}
-        </span>
-        <span className="text-xs font-medium text-forest flex items-center gap-1 shrink-0">
-          <Lock size={12} /> Unlock
-        </span>
+    <div>
+      <div className="flex flex-col divide-y divide-stone border-t border-stone">
+        {visible.map((m) => (
+          <MetricRow key={m.metric} m={m} />
+        ))}
+        {hiddenCount > 0 && (
+          <div className="py-4 flex items-center justify-between gap-3">
+            <span className="text-xs text-stone-text">
+              +{hiddenCount} more evaluated categor{hiddenCount === 1 ? "y" : "ies"}
+            </span>
+            <span className="text-xs font-medium text-forest flex items-center gap-1 shrink-0">
+              <Lock size={12} /> Unlock
+            </span>
+          </div>
+        )}
       </div>
+      <div className="border-b border-stone" />
+      {notAssessed.length > 0 && (
+        <p className="text-[11px] text-stone-text mt-3 leading-relaxed">
+          Not assessed this scan: {notAssessed.map((m, i) => (
+            <span key={m.metric}>
+              {i > 0 && ", "}
+              {m.metric}
+            </span>
+          ))}
+          .
+        </p>
+      )}
     </div>
   );
 }
@@ -354,40 +364,62 @@ function IssueCard({ issue, blurred }: { issue: AuditIssue; blurred?: boolean })
           {sourceInfo.text}
         </span>
       </div>
+      {/* Collapsed-by-default: observation + evidence + the recommendation
+          are what a reader needs immediately. Behavioral/business
+          rationale and research citations move behind "Why this matters"
+          — real content, just not forced on every card before the reader
+          has even seen what to do about it. */}
       {!blurred && (
-        <div className="flex flex-col gap-2 text-sm text-ink">
-          <p>{issue.observation}</p>
+        <div className="flex flex-col gap-2.5 text-[15px] text-ink">
+          <p className="leading-relaxed">{issue.observation}</p>
           <EvidenceBlock issue={issue} />
-          <p className="text-stone-text">{issue.behavioralExplanation}</p>
-          <p className="text-stone-text">{issue.businessImplication}</p>
-          {issue.researchContext && issue.researchContext.length > 0 && (
-            <div className="flex flex-col gap-1.5 mt-1">
-              {issue.researchContext.map((r, i) => (
-                <p key={i} className="text-xs text-stone-text border-l-2 border-stone pl-2">
-                  <span className="text-ink font-medium">
-                    {r.source} — {r.title}:
-                  </span>{" "}
-                  {r.summary}
-                </p>
-              ))}
+
+          <div className="bg-forest/5 border border-forest/30 px-3 py-2.5 mt-1">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-forest mb-1">Recommendation</p>
+            <p className="text-sm text-ink leading-relaxed">{issue.recommendation}</p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs mt-1">
+            <span className={`font-medium ${BUSINESS_IMPACT_COLOR[issue.businessImpact]}`}>
+              {issue.businessImpact.charAt(0).toUpperCase() + issue.businessImpact.slice(1)} business impact
+            </span>
+            <span className="text-stone">·</span>
+            <span className="font-mono text-stone-text">{issue.confidence}% confidence</span>
+            <span className="text-stone">·</span>
+            <span className="text-stone-text">{EFFORT_LABEL[issue.effort]}</span>
+          </div>
+
+          <details className="mt-1">
+            <summary className="text-xs text-forest cursor-pointer select-none">Why this matters</summary>
+            <div className="flex flex-col gap-2 mt-2 text-sm text-stone-text">
+              <p>{issue.behavioralExplanation}</p>
+              <p>{issue.businessImplication}</p>
+              {issue.researchContext && issue.researchContext.length > 0 && (
+                <div className="flex flex-col gap-1.5">
+                  {issue.researchContext.map((r, i) => (
+                    <p key={i} className="text-xs text-stone-text border-l-2 border-stone pl-2">
+                      <span className="text-ink font-medium">
+                        {r.source} — {r.title}:
+                      </span>{" "}
+                      {r.summary}
+                    </p>
+                  ))}
+                </div>
+              )}
             </div>
-          )}
+          </details>
         </div>
       )}
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-3 text-xs">
-        <span className={`font-medium ${BUSINESS_IMPACT_COLOR[issue.businessImpact]}`}>
-          {issue.businessImpact.charAt(0).toUpperCase() + issue.businessImpact.slice(1)} business impact
-        </span>
-        <span className="text-stone">·</span>
-        <span className="font-mono text-stone-text">{issue.confidence}% confidence</span>
-        <span className="text-stone">·</span>
-        <span className="text-stone-text">{EFFORT_LABEL[issue.effort]}</span>
-      </div>
-      {!blurred && (
-        <p className="text-sm mt-3 text-ink border-t border-stone pt-2">
-          <span className="text-forest font-medium">Recommendation: </span>
-          {issue.recommendation}
-        </p>
+      {blurred && (
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+          <span className={`font-medium ${BUSINESS_IMPACT_COLOR[issue.businessImpact]}`}>
+            {issue.businessImpact.charAt(0).toUpperCase() + issue.businessImpact.slice(1)} business impact
+          </span>
+          <span className="text-stone">·</span>
+          <span className="font-mono text-stone-text">{issue.confidence}% confidence</span>
+          <span className="text-stone">·</span>
+          <span className="text-stone-text">{EFFORT_LABEL[issue.effort]}</span>
+        </div>
       )}
     </div>
   );
@@ -409,12 +441,12 @@ function PriorityOpportunityCard({ issue }: { issue: AuditIssue }) {
       <p className="text-xs text-stone-text mb-3 truncate" title={issue.pageUrl}>
         {issue.pageUrl}
       </p>
-      <p className="text-sm text-ink mb-2">{issue.observation}</p>
+      <p className="text-[15px] text-ink mb-2 leading-relaxed">{issue.observation}</p>
       <p className="text-sm text-stone-text mb-3">{issue.businessImplication}</p>
-      <p className="text-sm text-ink border-t border-stone pt-2">
-        <span className="text-forest font-medium">Recommendation: </span>
-        {issue.recommendation}
-      </p>
+      <div className="bg-forest/5 border border-forest/30 px-3 py-2.5">
+        <p className="text-[10px] font-semibold uppercase tracking-wide text-forest mb-1">Recommendation</p>
+        <p className="text-sm text-ink leading-relaxed">{issue.recommendation}</p>
+      </div>
     </div>
   );
 }
@@ -476,7 +508,6 @@ export default function ScanPage() {
 // the fetch/poll logic above.
 export function ScanResultsView({ scan, paymentResult }: { scan: ScanData; paymentResult: string | null }) {
   const [showPaywall, setShowPaywall] = useState(false);
-  const [userMonthlyRevenue, setUserMonthlyRevenue] = useState("");
 
   const isRunning = scan.status === "PENDING" || scan.status === "RUNNING";
   const isFailed = scan.status === "FAILED";
@@ -484,13 +515,7 @@ export function ScanResultsView({ scan, paymentResult }: { scan: ScanData; payme
   const full = scan.fullResults;
   const results = full ?? teaser;
 
-  const parsedUserRevenue = Number(userMonthlyRevenue.replace(/[^0-9.]/g, ""));
-  const hasUserRevenue = parsedUserRevenue > 0;
-  const directionalEstimate =
-    hasUserRevenue && results
-      ? computeDirectionalRevenueEstimate(results.overallScore, parsedUserRevenue)
-      : null;
-  const highImpactCount = results?.revenueOpportunity.highImpactCount ?? 0;
+  const highImpactCount = results?.opportunitySummary.highImpactCount ?? 0;
   const topIssue = results?.issues[0] ?? null;
 
   return (
@@ -623,66 +648,29 @@ export function ScanResultsView({ scan, paymentResult }: { scan: ScanData; payme
               />
             </section>
 
-            {/* 2. Priority Opportunities / Revenue Opportunity */}
+            {/* 2. Priority Opportunities — never a revenue/dollar estimate.
+                An earlier version computed a "directional revenue
+                estimate" from invented conversion-lift multipliers with no
+                study behind them; removed entirely rather than kept behind
+                a disclaimer, per the standing instruction that a
+                plausible-looking number is misleading regardless of how
+                it's caveated. */}
             <section className="mb-10 border-t border-stone pt-8">
               <div className="flex items-center gap-2 text-rust mb-4">
                 <TrendingUp size={16} />
-                <span className="text-xs font-semibold uppercase tracking-[0.15em]">
-                  {directionalEstimate ? "Revenue Opportunity" : "Priority Opportunities"}
-                </span>
+                <span className="text-xs font-semibold uppercase tracking-[0.15em]">Priority Opportunities</span>
               </div>
 
-              {directionalEstimate && (
-                <>
-                  <p className="font-display text-3xl sm:text-4xl text-ink mb-1">
-                    +{directionalEstimate.conversionLiftLow}–{directionalEstimate.conversionLiftHigh}%
-                  </p>
-                  <p className="text-sm text-stone-text mb-6">Directional conversion lift range</p>
-
-                  <p className="font-display text-2xl sm:text-3xl text-rust mb-1">
-                    ${directionalEstimate.monthlyLossLow.toLocaleString()}–$
-                    {directionalEstimate.monthlyLossHigh.toLocaleString()}
-                    <span className="text-base text-stone-text font-sans font-normal">/month</span>
-                  </p>
-                  <p className="text-sm text-stone-text mb-3">
-                    Roughly ${directionalEstimate.annualLossLow.toLocaleString()}–$
-                    {directionalEstimate.annualLossHigh.toLocaleString()} annually, based on the $
-                    {directionalEstimate.monthlyRevenueInput.toLocaleString()}/month you entered.
-                  </p>
-                  <p className="text-xs text-stone-text mb-6 italic">{directionalEstimate.disclaimer}</p>
-                </>
-              )}
-
-              {!directionalEstimate && (
-                <p className="text-sm text-stone-text mb-5 max-w-md">
-                  {highImpactCount} high-impact opportunit{highImpactCount === 1 ? "y" : "ies"} verified in this
-                  scan, ranked by business impact and effort to fix. Here&apos;s the top one:
-                </p>
-              )}
+              <p className="text-sm text-stone-text mb-5 max-w-md">
+                {highImpactCount} high-impact opportunit{highImpactCount === 1 ? "y" : "ies"} verified in this
+                scan, ranked by business impact and effort to fix. Here&apos;s the top one:
+              </p>
 
               {topIssue && (
                 <div className="mb-5">
                   <PriorityOpportunityCard issue={topIssue} />
                 </div>
               )}
-
-              <div className="bg-white border border-stone px-4 py-3 mb-4">
-                <p className="text-xs text-stone-text mb-2">
-                  Optional — we never store this, it only recalculates the range above in your browser.
-                </p>
-                <div className="flex items-center gap-2">
-                  <span className="text-stone-text text-sm">$</span>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    placeholder="e.g. 50,000"
-                    value={userMonthlyRevenue}
-                    onChange={(e) => setUserMonthlyRevenue(e.target.value)}
-                    className="flex-1 min-w-0 bg-paper border border-stone px-3 py-1.5 text-sm text-ink placeholder:text-stone-text focus:outline-none focus:border-ink"
-                  />
-                  <span className="text-stone-text text-sm whitespace-nowrap">/month revenue</span>
-                </div>
-              </div>
 
               {!scan.isPaid && (
                 <button
@@ -700,9 +688,9 @@ export function ScanResultsView({ scan, paymentResult }: { scan: ScanData; payme
                 Business Impact Areas
               </h2>
               <p className="text-xs text-stone-text mb-4">
-                Each score is derived only from evidence this scan could actually observe — areas we
-                couldn&apos;t assess (e.g. checkout, without a product page) are marked as such rather
-                than guessed.
+                Every score below is 0–100, and higher always means better (fewer or less severe
+                verified issues) — the scale never inverts between categories. Each score is derived
+                only from evidence this scan could actually observe.
               </p>
               <MetricsBars metrics={results.metrics} locked={!scan.isPaid} />
             </section>
@@ -767,12 +755,29 @@ export function ScanResultsView({ scan, paymentResult }: { scan: ScanData; payme
                   shown unlocked next to the score above — locking a
                   second view of the same numbers added nothing but an
                   empty-looking box, which is exactly what this report is
-                  meant to avoid. */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-px bg-stone">
+                  meant to avoid.
+
+                  No shared container background: a first attempt used
+                  flex-wrap with bg-stone on the OUTER container (the
+                  grid-gap-line trick from elsewhere in this file), but a
+                  flex container's background fills its full row height
+                  regardless of how many tiles are actually in that row —
+                  with 5 populated categories, the trailing 3 of 4 desktop
+                  columns in the second row rendered as one large solid
+                  grey block, which is the exact "apparently empty grey
+                  tile" bug this is meant to fix, just bigger. The
+                  container itself is transparent now; each tile carries
+                  its own border, so unused space in an incomplete row is
+                  just the page background showing through — nothing
+                  renders there at all. */}
+              <div className="flex flex-wrap gap-2">
                 {Object.entries(results.categorySummary)
                   .filter(([, count]) => count > 0)
                   .map(([cat, count]) => (
-                    <div key={cat} className="bg-white p-4 text-center">
+                    <div
+                      key={cat}
+                      className="w-[calc(50%-4px)] sm:w-[calc(25%-6px)] border border-stone bg-white p-4 text-center"
+                    >
                       <div className="flex justify-center mb-1 text-stone-text">{CATEGORY_ICON[cat]}</div>
                       <span className="font-display text-2xl text-ink">{count}</span>
                       <p className="text-xs text-stone-text mt-0.5">{cat}</p>

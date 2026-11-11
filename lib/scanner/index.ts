@@ -51,7 +51,9 @@ function scoreToGrade(score: number): string {
   return "F";
 }
 
-function categorySummary(issues: AuditIssue[]): Record<IssueCategory, number> {
+// Exported so its reconciliation invariant (sum of counts === issues.length)
+// can be tested directly rather than duplicated in a test file.
+export function categorySummary(issues: AuditIssue[]): Record<IssueCategory, number> {
   const summary: Record<IssueCategory, number> = {
     SEO: 0,
     UX: 0,
@@ -200,7 +202,7 @@ export async function runFullScan(url: string): Promise<{ teaser: TeaserResults;
       grade,
       industry,
       benchmark: PLACEHOLDER_BENCHMARK,
-      revenueOpportunity: { hasEstimate: false, highImpactCount },
+      opportunitySummary: { highImpactCount },
       metrics,
       issues: allIssues.slice(0, 3),
       totalIssueCount: allIssues.length,

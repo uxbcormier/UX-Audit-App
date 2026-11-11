@@ -112,35 +112,32 @@ export interface AuditIssue extends DraftIssue {
 
 export interface MetricResult {
   metric: ProprietaryMetric;
+  // Plain-language explanation of what this metric measures — every
+  // displayed metric must carry one, so a reader never sees a bare score
+  // with no idea what it represents.
+  description: string;
   // False when nothing in this scan could speak to this metric (e.g. no
   // checkout flow was scanned) — surfaced as "not assessed" rather than
   // silently defaulting to a score that would misleadingly imply a clean pass.
   evaluated: boolean;
-  score: number | null; // 0-100, null when not evaluated
+  // 0-100, null when not evaluated. Higher is always better, consistently
+  // across every metric (100 minus a severity-weighted deduction) — never
+  // inverted for any category.
+  score: number | null;
   issueCount: number;
   evidenceNote: string;
 }
 
-// Shown before the visitor supplies their real revenue — deliberately
-// contains no dollar figure or fabricated precision.
-export interface RevenueOpportunityPlaceholder {
-  hasEstimate: false;
+// Deliberately contains no dollar figure. An earlier version of this
+// computed a "directional revenue estimate" from the overall score using
+// invented conversion-lift multipliers (0.12x-0.28x of the score deficit)
+// with no study behind them — removed entirely rather than kept behind a
+// disclaimer, since a plausible-looking number is misleading regardless of
+// how it's caveated. Opportunities are presented as prioritized UX
+// improvements, not monetary claims.
+export interface OpportunitySummary {
   highImpactCount: number; // count of critical/high-severity issues — directly observed, not invented
 }
-
-export interface DirectionalRevenueEstimate {
-  hasEstimate: true;
-  monthlyRevenueInput: number;
-  conversionLiftLow: number;
-  conversionLiftHigh: number;
-  monthlyLossLow: number;
-  monthlyLossHigh: number;
-  annualLossLow: number;
-  annualLossHigh: number;
-  disclaimer: string;
-}
-
-export type RevenueOpportunity = RevenueOpportunityPlaceholder | DirectionalRevenueEstimate;
 
 export type BenchmarkTier = "fallback" | "early" | "growing" | "established";
 
@@ -159,7 +156,7 @@ export interface TeaserResults {
   grade: string;
   industry: string;
   benchmark: IndustryBenchmarkInfo;
-  revenueOpportunity: RevenueOpportunityPlaceholder;
+  opportunitySummary: OpportunitySummary;
   metrics: MetricResult[];
   issues: AuditIssue[]; // only top 3 shown (2 full + 1 locked on the client)
   totalIssueCount: number;

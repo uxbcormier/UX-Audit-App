@@ -66,38 +66,58 @@ export function runUxChecks(page: ScrapedPage): { issues: DraftIssue[]; limitati
     });
   }
 
-  // Check for homepage decision paralysis: many distinct, competing CTA labels
-  // dilute the "one obvious next step" a homepage should offer.
-  const ctaLabels = new Set(
-    ctaButtons.map((el) => $(el).text().trim().replace(/\s+/g, " ").toLowerCase()).filter(Boolean)
-  );
+  // Check for homepage decision paralysis. A raw count of distinct CTA
+  // labels is NOT by itself evidence that they visually compete, sit at
+  // the same hierarchy level, or confuse a real decision — we have no way
+  // to assess visual prominence or layout position. Two things make this
+  // honest rather than overclaimed: (1) only count elements the real
+  // browser reports as actually visible (page.interactiveElements),
+  // withholding the check entirely when that evidence isn't available,
+  // rather than falling back to a visibility-blind raw cheerio count; and
+  // (2) the finding itself is worded as a count-based signal worth a
+  // look, never a confirmed "these compete" or "your hierarchy is
+  // unclear" claim, since establishing that would need real layout/
+  // prominence data this scanner doesn't have.
+  const DECISION_PARALYSIS_THRESHOLD = 8;
 
-  if (ctaLabels.size > 6) {
-    const sampleLabels = [...ctaLabels].slice(0, 3).join('", "');
-    issues.push({
-      id: "ux-decision-paralysis",
-      category: "UX",
-      metric: "Decision Complexity",
-      severity: "warning",
-      title: "Too many competing calls-to-action",
-      observation: `${ctaLabels.size} distinct call-to-action labels (e.g. "${sampleLabels}") were found on the homepage.`,
-      evidence: {
-        type: "count",
-        detail: `${ctaLabels.size} distinct call-to-action labels found on the homepage.`,
-        value: ctaLabels.size,
-      },
-      behavioralExplanation:
-        "When a page offers many different 'next steps' at once, deciding which one to take takes longer, and some share of shoppers decide not to act at all.",
-      businessImplication:
-        "A homepage without one clear primary action spreads attention thin and can slow the path to purchase.",
-      businessImpact: "medium",
-      confidence: 70,
-      effort: "medium",
-      recommendation:
-        "Pick one primary call-to-action per homepage section and demote the rest to secondary (text link) styling.",
-      sourceLabel: "research-supported",
-      researchContext: cite("hicksLaw"),
-    });
+  if (page.interactiveElements) {
+    const visibleCtaLabels = new Set(
+      page.interactiveElements
+        .filter((el) => el.visible)
+        .map((el) => normalizeText([el.text, el.ariaLabel ?? ""].join(" ")).toLowerCase())
+        .filter((label) => label && ctaKeywords.test(label))
+    );
+
+    if (visibleCtaLabels.size > DECISION_PARALYSIS_THRESHOLD) {
+      const sampleLabels = [...visibleCtaLabels].slice(0, 3).join('", "');
+      issues.push({
+        id: "ux-decision-paralysis",
+        category: "UX",
+        metric: "Decision Complexity",
+        severity: "warning",
+        title: "Many distinct action labels on the homepage",
+        observation: `${visibleCtaLabels.size} distinct, visible call-to-action labels (e.g. "${sampleLabels}") were found on the homepage. This counts labels only — it doesn't confirm they visually compete or share the same hierarchy level.`,
+        evidence: {
+          type: "count",
+          detail: `${visibleCtaLabels.size} distinct, visible call-to-action labels found on the homepage.`,
+          value: visibleCtaLabels.size,
+        },
+        behavioralExplanation:
+          "When a page offers many different 'next steps' at once, deciding which one to take takes longer, and some share of shoppers decide not to act at all — though whether that applies here depends on layout this scan can't assess.",
+        businessImplication:
+          "Worth a manual look at whether your primary action is visually distinct from the rest, since this count alone doesn't confirm a hierarchy problem.",
+        businessImpact: "medium",
+        confidence: 50,
+        effort: "medium",
+        recommendation:
+          "Review whether one primary call-to-action is visually dominant per homepage section, with the rest demoted to secondary (text link) styling.",
+        sourceLabel: "internal-heuristic",
+      });
+    }
+  } else {
+    limitations.push(
+      "Could not conclusively verify how many distinct, visible calls-to-action are on the homepage — the page's DOM capture was incomplete for this scan."
+    );
   }
 
   // Check for contact/support info

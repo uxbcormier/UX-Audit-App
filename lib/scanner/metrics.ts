@@ -18,6 +18,9 @@ interface MetricContext {
 
 interface MetricDefinition {
   metric: ProprietaryMetric;
+  // Plain-language explanation of what this metric measures — shown
+  // alongside every score so a number never appears unexplained.
+  description: string;
   // Whether this scan was even capable of speaking to this metric, given
   // what was actually scanned. A metric nothing could evaluate (e.g.
   // Checkout Friction — no checkout flow is scanned) is reported as "not
@@ -29,41 +32,49 @@ interface MetricDefinition {
 const METRIC_DEFINITIONS: MetricDefinition[] = [
   {
     metric: "Product Discovery Friction",
+    description: "How easily shoppers can find products through navigation and site search.",
     available: () => true,
     notAssessedNote: "Not assessed",
   },
   {
     metric: "PDP Purchase Readiness",
+    description: "Whether a product page has what's needed to let a shopper actually buy.",
     available: ({ productPageScanned }) => productPageScanned,
     notAssessedNote: "Not assessed — no product page was found to scan alongside the homepage",
   },
   {
     metric: "Checkout Friction",
+    description: "Friction in the cart and checkout flow.",
     available: () => false,
     notAssessedNote: "Not assessed — this scan covers the homepage and a product page, not the checkout flow",
   },
   {
     metric: "Mobile Friction",
+    description: "Mobile page load speed and rendering quality.",
     available: () => true,
     notAssessedNote: "Not assessed",
   },
   {
     metric: "Trust Coverage",
+    description: "Signals shoppers use to judge legitimacy — reviews, policies, security language.",
     available: () => true,
     notAssessedNote: "Not assessed",
   },
   {
     metric: "Decision Complexity",
+    description: "Whether the page offers one clear next step, or too many competing ones.",
     available: () => true,
     notAssessedNote: "Not assessed",
   },
   {
     metric: "Performance Risk",
+    description: "Core Web Vitals and server response time.",
     available: ({ pageSpeedAvailable }) => pageSpeedAvailable,
     notAssessedNote: "Not assessed — the PageSpeed check didn't return in time for this scan",
   },
   {
     metric: "Search Experience",
+    description: "SEO fundamentals and on-site search.",
     available: () => true,
     notAssessedNote: "Not assessed",
   },
@@ -75,12 +86,12 @@ const METRIC_DEFINITIONS: MetricDefinition[] = [
 // only the issues that feed it — transparent and re-derivable from the
 // issue list itself, not a separate invented number.
 export function computeMetricResults(issues: AuditIssue[], ctx: MetricContext): MetricResult[] {
-  return METRIC_DEFINITIONS.map(({ metric, available, notAssessedNote }) => {
+  return METRIC_DEFINITIONS.map(({ metric, description, available, notAssessedNote }) => {
     const evaluated = available(ctx);
     const metricIssues = issues.filter((i) => i.metric === metric);
 
     if (!evaluated) {
-      return { metric, evaluated: false, score: null, issueCount: 0, evidenceNote: notAssessedNote };
+      return { metric, description, evaluated: false, score: null, issueCount: 0, evidenceNote: notAssessedNote };
     }
 
     const deduction = metricIssues.reduce((acc, i) => acc + SEVERITY_WEIGHT[i.severity], 0);
@@ -90,6 +101,6 @@ export function computeMetricResults(issues: AuditIssue[], ctx: MetricContext): 
         ? "No issues found in this area"
         : `Based on ${metricIssues.length} finding${metricIssues.length > 1 ? "s" : ""}`;
 
-    return { metric, evaluated: true, score, issueCount: metricIssues.length, evidenceNote };
+    return { metric, description, evaluated: true, score, issueCount: metricIssues.length, evidenceNote };
   });
 }
