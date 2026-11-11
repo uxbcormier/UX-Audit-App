@@ -6,7 +6,8 @@ export default function LoginPage() {
     <main className="flex-1 flex items-center justify-center px-6 py-20 bg-paper">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <span className="font-display text-xl tracking-tight">GRAFTER</span>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/grafter-logo.svg" alt="Grafter" className="h-5 w-auto mx-auto" />
           <h1 className="font-display text-2xl text-ink mt-6 mb-2">Sign in</h1>
           <p className="text-stone-text text-sm">
             We&apos;ll email you a magic link — no password needed.

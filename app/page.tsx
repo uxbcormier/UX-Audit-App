@@ -75,7 +75,8 @@ export default function HomePage() {
       {/* Nav */}
       <nav className="rule px-6 py-5 border-b border-stone">
         <div className="max-w-5xl mx-auto flex items-center justify-between">
-          <span className="font-display text-xl tracking-tight">GRAFTER</span>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/grafter-logo.svg" alt="Grafter" className="h-5 w-auto" />
           <div className="flex items-center gap-6">
             <span className="text-sm text-stone-text hidden sm:inline">
               Start free. No signup required.

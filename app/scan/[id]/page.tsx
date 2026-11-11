@@ -526,7 +526,8 @@ export function ScanResultsView({ scan, paymentResult }: { scan: ScanData; payme
           <Link href="/" className="text-stone-text hover:text-ink">
             <ArrowLeft size={18} />
           </Link>
-          <span className="font-display text-lg tracking-tight">GRAFTER</span>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/grafter-logo.svg" alt="Grafter" className="h-4 w-auto" />
           <span className="text-sm text-stone-text ml-auto truncate max-w-xs">{scan.url}</span>
         </div>
       </nav>
