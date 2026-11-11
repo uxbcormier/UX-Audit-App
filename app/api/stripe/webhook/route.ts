@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getStripe } from "@/lib/stripe";
 import { prisma } from "@/lib/prisma";
 import { sendReportReadyEmail } from "@/lib/email";
-import { trimmedEnv } from "@/lib/env";
+import { trimmedEnv, resolveBaseUrl } from "@/lib/env";
 
 export async function POST(req: NextRequest) {
   const body = await req.text();
@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
       if (email) {
         const scan = await prisma.scan.findUnique({ where: { id: scanId } });
         if (scan) {
-          const baseUrl = trimmedEnv("NEXT_PUBLIC_BASE_URL") ?? "http://localhost:3000";
+          const baseUrl = resolveBaseUrl();
           await sendReportReadyEmail({
             to: email,
             scanUrl: scan.url,

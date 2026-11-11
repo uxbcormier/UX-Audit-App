@@ -2,26 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { getStripe, FULL_AUDIT_PRICE_CENTS } from "@/lib/stripe";
 import { prisma } from "@/lib/prisma";
-import { trimmedEnv } from "@/lib/env";
+import { resolveBaseUrl } from "@/lib/env";
 
 const schema = z.object({
   scanId: z.string().min(1),
   email: z.string().email(),
 });
-
-// Stripe's success_url/cancel_url/images params must be absolute URLs with
-// a scheme, or checkout.sessions.create fails with "Not a valid URL." Two
-// real failure modes found in production here: `trimmedEnv(...) ??
-// fallback` only falls back on null/undefined, not on an empty string (a
-// blank env var in Vercel silently produced a relative URL), and a value
-// set without "https://" (an easy paste mistake — "yourapp.vercel.app"
-// instead of "https://yourapp.vercel.app") isn't absolute either.
-function resolveBaseUrl(): string {
-  const raw = trimmedEnv("NEXT_PUBLIC_BASE_URL");
-  const value = raw && raw.length > 0 ? raw : "http://localhost:3000";
-  const withScheme = /^https?:\/\//i.test(value) ? value : `https://${value}`;
-  return withScheme.replace(/\/+$/, "");
-}
 
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => ({}));
