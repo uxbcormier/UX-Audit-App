@@ -121,6 +121,40 @@ describe("detectPurchaseAction", () => {
     expect(["present", "present_but_disabled"]).toContain(result.status);
   });
 
+  // The Canada Goose digital-gift-card shape: no "Add to Cart"/"Select
+  // Size" wording anywhere — the amount picker is just a row of plain
+  // dollar-value buttons, and the real Add to Cart control doesn't exist
+  // (or isn't relevant) until one is chosen. Must not be a defect.
+  it("treats a row of gift-card amount-option buttons as present_but_disabled, not missing", () => {
+    const page = makePage(PRODUCT_HTML, [
+      el({ text: "$50" }),
+      el({ text: "$100" }),
+      el({ text: "$250" }),
+      el({ text: "$500" }),
+    ]);
+    const result = detectPurchaseAction(page, classifyPage(page, PRODUCT_URL));
+    expect(result.status).toBe("present_but_disabled");
+    expect(result.evidence.join(" ")).toContain("$50");
+  });
+
+  it("does not treat a single stray dollar amount as an amount picker", () => {
+    const page = makePage(PRODUCT_HTML, [el({ text: "$50" }), el({ text: "Wishlist" })]);
+    const result = detectPurchaseAction(page, classifyPage(page, PRODUCT_URL));
+    expect(result.status).toBe("not_detected");
+  });
+
+  it("does not treat a plain quantity stepper (no $ sign) as an amount picker", () => {
+    const page = makePage(PRODUCT_HTML, [el({ text: "1" }), el({ text: "2" }), el({ text: "3" })]);
+    const result = detectPurchaseAction(page, classifyPage(page, PRODUCT_URL));
+    expect(result.status).toBe("not_detected");
+  });
+
+  it("recognizes 'Select an Amount' as a variant-selection CTA, same as 'Select Size'", () => {
+    const page = makePage(PRODUCT_HTML, [el({ text: "Select an Amount" })]);
+    const result = detectPurchaseAction(page, classifyPage(page, PRODUCT_URL));
+    expect(["present", "present_but_disabled"]).toContain(result.status);
+  });
+
   // Scenario 5: a genuine product page with no purchase action anywhere —
   // the one case a definitive "not_detected" is actually warranted.
   it("returns not_detected when no purchase action exists on a confidently classified product page", () => {

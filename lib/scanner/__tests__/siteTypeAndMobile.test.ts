@@ -128,6 +128,7 @@ describe("runMobileChecks", () => {
     viewportHeight: 667,
     scrollWidth: 375,
     hasHorizontalOverflow: false,
+    overflowOffenders: [],
     totalVisibleTapTargets: 10,
     undersizedTapTargetCount: 0,
     totalBodyTextSamples: 10,
@@ -146,9 +147,22 @@ describe("runMobileChecks", () => {
     expect(limitations).toHaveLength(0);
   });
 
-  it("flags horizontal overflow when scrollWidth exceeds the viewport width", () => {
-    const { issues } = runMobileChecks({ ...BASE, scrollWidth: 600, hasHorizontalOverflow: true });
+  it("flags horizontal overflow when a real offending element was found", () => {
+    const { issues } = runMobileChecks({
+      ...BASE,
+      scrollWidth: 600,
+      hasHorizontalOverflow: true,
+      overflowOffenders: ["<div.hero-banner>"],
+    });
     expect(issues.map((i) => i.id)).toContain("mobile-horizontal-overflow");
+  });
+
+  it("does not flag overflow when hasHorizontalOverflow is false, even if scrollWidth looks large", () => {
+    // Guards the real fix: a wide scrollWidth alone (e.g. from an
+    // off-canvas drawer or a clipped carousel) must never be enough on its
+    // own — only a genuine, named offending element should trigger this.
+    const { issues } = runMobileChecks({ ...BASE, scrollWidth: 1375, hasHorizontalOverflow: false });
+    expect(issues.map((i) => i.id)).not.toContain("mobile-horizontal-overflow");
   });
 
   it("flags undersized tap targets once they're a third or more of visible targets", () => {

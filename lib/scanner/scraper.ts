@@ -419,6 +419,13 @@ export interface MobileRenderAudit {
   viewportHeight: number;
   scrollWidth: number;
   hasHorizontalOverflow: boolean;
+  // The actual element(s) found to extend past the viewport's right edge
+  // while genuinely visible (not clipped by an ancestor's overflow:hidden,
+  // not a position:fixed off-canvas panel) — see the evaluate() logic
+  // below for why document.documentElement.scrollWidth alone isn't
+  // trustworthy evidence on its own. Empty when hasHorizontalOverflow is
+  // false, or populated whenever offenders were actually found.
+  overflowOffenders: string[];
   totalVisibleTapTargets: number;
   undersizedTapTargetCount: number;
   totalBodyTextSamples: number;
@@ -498,8 +505,59 @@ export async function captureMobileRenderAudit(
           (el) => parseFloat(window.getComputedStyle(el).fontSize) < minReadableFontPx
         ).length;
 
+        // document.documentElement.scrollWidth alone is NOT trustworthy
+        // evidence of a visible, scrollable layout bug: an off-canvas menu
+        // or cart drawer (position: fixed/absolute, meant to sit outside
+        // the viewport until opened) can inflate it with zero visible
+        // effect, and a wide element properly clipped by an ancestor's
+        // overflow:hidden (a carousel track, for instance) never produces
+        // real scrollable overflow even though its own box is wider than
+        // the viewport. Rather than trust the aggregate number, find actual
+        // offending elements: visible, not position:fixed (the single most
+        // common source of this exact false positive), not clipped by any
+        // ancestor's overflow, and genuinely extending past the right edge.
+        // Only report overflow — and only with the real element(s) named —
+        // when at least one such offender is actually found.
+        const viewportWidth = window.innerWidth;
+        const isClippedByAncestor = (el: Element): boolean => {
+          let node = el.parentElement;
+          let depth = 0;
+          while (node && node !== document.body && depth < 12) {
+            const style = window.getComputedStyle(node);
+            const clips = ["hidden", "clip", "scroll", "auto"].includes(style.overflowX);
+            if (clips) {
+              const ancestorRect = node.getBoundingClientRect();
+              if (ancestorRect.right <= viewportWidth + 1) return true;
+            }
+            node = node.parentElement;
+            depth++;
+          }
+          return false;
+        };
+        const describeElement = (el: Element): string => {
+          const id = el.id ? `#${el.id}` : "";
+          const firstClass = typeof el.className === "string" && el.className.trim() ? `.${el.className.trim().split(/\s+/)[0]}` : "";
+          return `<${el.tagName.toLowerCase()}${id}${firstClass}>`;
+        };
+
+        const overflowOffenders: string[] = [];
+        if (document.documentElement.scrollWidth > viewportWidth + 1) {
+          const candidates = Array.from(document.body.querySelectorAll("*"));
+          for (const el of candidates) {
+            if (overflowOffenders.length >= 3) break;
+            const style = window.getComputedStyle(el);
+            if (style.position === "fixed") continue; // see comment above
+            if (!isVisible(el)) continue;
+            const rect = el.getBoundingClientRect();
+            if (rect.right <= viewportWidth + 1) continue;
+            if (isClippedByAncestor(el)) continue;
+            overflowOffenders.push(describeElement(el));
+          }
+        }
+
         return {
           scrollWidth: document.documentElement.scrollWidth,
+          overflowOffenders,
           totalVisibleTapTargets: tapTargets.length,
           undersizedTapTargetCount,
           totalBodyTextSamples: textEls.length,
@@ -513,7 +571,11 @@ export async function captureMobileRenderAudit(
       viewportWidth: MOBILE_VIEWPORT.width,
       viewportHeight: MOBILE_VIEWPORT.height,
       scrollWidth: evidence.scrollWidth,
-      hasHorizontalOverflow: evidence.scrollWidth > MOBILE_VIEWPORT.width,
+      // Only ever true when a real, nameable offending element was found —
+      // see the evaluate() logic above for why the raw scrollWidth number
+      // isn't trusted on its own.
+      hasHorizontalOverflow: evidence.overflowOffenders.length > 0,
+      overflowOffenders: evidence.overflowOffenders,
       totalVisibleTapTargets: evidence.totalVisibleTapTargets,
       undersizedTapTargetCount: evidence.undersizedTapTargetCount,
       totalBodyTextSamples: evidence.totalBodyTextSamples,

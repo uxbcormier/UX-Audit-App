@@ -37,20 +37,20 @@ export function runMobileChecks(audit: MobileRenderAudit | null): {
       metric: "Mobile Experience",
       severity: "critical",
       title: "Page content overflows the mobile viewport width",
-      observation: `At a ${audit.viewportWidth}px-wide mobile viewport, the page's rendered content is ${audit.scrollWidth}px wide — wider than the screen.`,
+      observation: `At a ${audit.viewportWidth}px-wide mobile viewport, ${audit.overflowOffenders.length} element${audit.overflowOffenders.length === 1 ? "" : "s"} genuinely extend past the right edge of the screen (not just hidden off-canvas content or something clipped by its own container).`,
       evidence: {
         type: "performance-metric",
-        detail: `document.documentElement.scrollWidth (${audit.scrollWidth}px) exceeds the ${audit.viewportWidth}px viewport width in a real mobile-emulated render.`,
+        detail: `Visible, non-clipped element(s) found extending past the ${audit.viewportWidth}px viewport width in a real mobile-emulated render: ${audit.overflowOffenders.join(", ")}.`,
         value: audit.scrollWidth,
+        examples: audit.overflowOffenders,
       },
       behavioralExplanation:
         "Horizontal overflow forces phone users to scroll sideways or pinch-zoom just to read content, which most people simply won't do before leaving.",
       businessImplication: "The majority of shopping traffic is mobile — a sideways-scrolling layout affects most visitors, not an edge case.",
       businessImpact: "high",
-      confidence: 95,
+      confidence: 90,
       effort: "medium",
-      recommendation:
-        "Find the element forcing page width beyond the viewport (often a fixed-width element, an unconstrained image, or a wide table) and make it responsive.",
+      recommendation: `Check ${audit.overflowOffenders[0]} (and any other elements listed in the evidence) — it's rendering wider than the viewport and isn't contained by its parent's layout.`,
       sourceLabel: "observed",
     });
   }

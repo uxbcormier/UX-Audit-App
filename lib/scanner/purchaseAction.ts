@@ -23,9 +23,19 @@ const ADD_TO_CART_PATTERN = /add to (cart|bag|basket)|buy now/i;
 // Many apparel/footwear PDPs (Canada Goose among them) gate the literal
 // "Add to Bag" label behind a variant choice: the primary CTA reads
 // "Select Size" (or color/variant) until the shopper picks one. That's a
-// standard, functioning purchase path, not a missing one.
+// standard, functioning purchase path, not a missing one. Gift-card-style
+// PDPs use the same pattern for an amount/denomination instead of a size.
 const VARIANT_SELECT_PATTERN =
-  /select (a |your )?(size|colou?r|variant|option)|choose (a |your )?(size|colou?r)|select options/i;
+  /select (a |an |your )?(size|colou?r|variant|option|amount|value|denomination)|choose (a |an |your )?(size|colou?r|amount|value|denomination)|select options/i;
+// Gift-card PDPs commonly present the amount choice as a row of plain
+// dollar-value buttons ("$50", "$100", "$250"…) with no "select" wording
+// anywhere on the buttons themselves — the literal Add to Cart/Bag button
+// only renders (or only becomes relevant) after one is picked. Requiring
+// the "$" and at least two such buttons keeps this specific to a real
+// amount-picker rather than matching an unrelated price display or a
+// quantity stepper (which shows plain digits, not currency).
+const AMOUNT_OPTION_PATTERN = /^\$\d[\d,]*(\.\d{2})?$/;
+const MIN_AMOUNT_OPTIONS = 2;
 // Buttons that commonly sit right next to a real purchase action but are
 // NOT one — must not be mistaken for it even though some share words
 // ("size guide" contains "size"; "add to wishlist" contains "add to").
@@ -107,6 +117,27 @@ export function detectPurchaseAction(
       };
     }
 
+    // No literal Add to Cart/variant-select label anywhere — but a gift-card
+    // style amount picker (a row of plain "$50"/"$100"/"$250" buttons, with
+    // no "select" wording on them at all) is also a real, functioning
+    // first step toward purchase, not a missing one. The actual Add to
+    // Cart control on these PDPs commonly doesn't exist in the DOM (or
+    // isn't enabled) until an amount is chosen, so this has to be
+    // recognized as its own signal rather than expecting it to match the
+    // variant-select text pattern above.
+    const amountOptions = page.interactiveElements.filter(
+      (el) => el.visible && AMOUNT_OPTION_PATTERN.test(normalize(el.text))
+    );
+    if (amountOptions.length >= MIN_AMOUNT_OPTIONS) {
+      return {
+        status: "present_but_disabled",
+        confidence: 80,
+        evidence: amountOptions
+          .slice(0, 3)
+          .map((el) => `<${el.tag}> "${normalize(el.text)}" — a selectable amount option (gift-card-style picker)`),
+      };
+    }
+
     // No matching element anywhere in the real, complete DOM inventory.
     // With live evidence and a confident product-page classification,
     // this is the one case a definitive "not detected" is warranted.
@@ -115,7 +146,7 @@ export function detectPurchaseAction(
         status: "not_detected",
         confidence: Math.min(90, classification.confidence + 10),
         evidence: [
-          `Inspected ${page.interactiveElements.length} interactive elements on the page; none matched a purchase action ("add to cart/bag/basket", "buy now") or a variant-selection CTA ("select size", "select color").`,
+          `Inspected ${page.interactiveElements.length} interactive elements on the page; none matched a purchase action ("add to cart/bag/basket", "buy now"), a variant-selection CTA ("select size", "select color"), or a gift-card-style amount picker.`,
         ],
       };
     }
