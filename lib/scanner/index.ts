@@ -9,6 +9,7 @@ import { runTrustChecks } from "./checks/trust";
 import { runPerformanceChecks } from "./checks/performance";
 import { runProductChecks } from "./checks/product";
 import { runMobileChecks } from "./checks/mobile";
+import { runAccessibilityChecks } from "./checks/accessibility";
 import { classifyPage, classifySiteType } from "./pageClassification";
 import { computeMetricResults, SEVERITY_WEIGHT } from "./metrics";
 import type {
@@ -61,6 +62,7 @@ export function categorySummary(issues: AuditIssue[]): Record<IssueCategory, num
     Trust: 0,
     Performance: 0,
     Conversion: 0,
+    Accessibility: 0,
   };
   for (const issue of issues) summary[issue.category]++;
   return summary;
@@ -147,6 +149,7 @@ export async function runFullScan(url: string): Promise<{ teaser: TeaserResults;
     const { issues: trustIssues, limitations: trustLimitations } = runTrustChecks(page, siteType);
     const perfIssues = psResult ? runPerformanceChecks(psResult) : [];
     const { issues: mobileIssues, limitations: mobileLimitations } = runMobileChecks(mobileAudit);
+    const { issues: accessibilityIssues, limitations: accessibilityLimitations } = runAccessibilityChecks(page);
 
     // Product-page checks are stamped with the actual product page URL
     // (falling back to the homepage URL only in the defensive case where
@@ -159,6 +162,7 @@ export async function runFullScan(url: string): Promise<{ teaser: TeaserResults;
       ...withPageUrl(trustIssues, url),
       ...withPageUrl(perfIssues, url),
       ...withPageUrl(mobileIssues, url),
+      ...withPageUrl(accessibilityIssues, url),
       ...withPageUrl(productIssues, productPageUrl ?? url),
     ];
 
@@ -202,6 +206,7 @@ export async function runFullScan(url: string): Promise<{ teaser: TeaserResults;
       ...uxLimitations,
       ...trustLimitations,
       ...mobileLimitations,
+      ...accessibilityLimitations,
       ...productLimitations,
     ];
     if (!productPageUrl) {

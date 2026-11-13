@@ -32,6 +32,7 @@ function makePage(html: string, interactiveElements: InteractiveElementEvidence[
     screenshotDataUrl: null,
     interactiveElements,
     headingAudit: interactiveElements !== null ? { h1Count: h1s.length, visibleH1Count: h1s.length } : null,
+    contrastAudit: null,
     evidenceComplete: interactiveElements !== null,
   };
 }

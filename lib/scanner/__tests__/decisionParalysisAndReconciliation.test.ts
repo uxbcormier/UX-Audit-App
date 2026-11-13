@@ -47,6 +47,7 @@ function makePage(interactiveElements: InteractiveElementEvidence[] | null): Scr
     screenshotDataUrl: null,
     interactiveElements,
     headingAudit: { h1Count: 1, visibleH1Count: 1 },
+    contrastAudit: null,
     evidenceComplete: interactiveElements !== null,
   };
 }

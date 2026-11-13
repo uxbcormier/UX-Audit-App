@@ -47,6 +47,34 @@ export const RESEARCH_LIBRARY = {
       "Google's published performance research defines thresholds (e.g. LCP, CLS) correlated with real-user experience quality, and uses them as a search ranking signal.",
     url: "https://web.dev/articles/vitals",
   },
+  wcagLanguageOfPage: {
+    source: "W3C Web Content Accessibility Guidelines (WCAG 2.1)",
+    title: "Understanding Success Criterion 3.1.1: Language of Page (Level A)",
+    summary:
+      "Requires the default human language of a page to be programmatically determinable (typically via the <html lang> attribute), so assistive technology like screen readers can select the correct pronunciation rules.",
+    url: "https://www.w3.org/WAI/WCAG21/Understanding/language-of-page.html",
+  },
+  wcagLinkPurpose: {
+    source: "W3C Web Content Accessibility Guidelines (WCAG 2.0/2.1)",
+    title: "Understanding Success Criterion 2.4.4: Link Purpose (In Context)",
+    summary:
+      "Requires a link's purpose to be determinable from its link text alone (or its text plus programmatically-determined context) — vague text like 'click here' or 'read more' fails this for a screen-reader user tabbing through a page's links in isolation.",
+    url: "https://www.w3.org/WAI/WCAG20/Understanding/link-purpose-in-context.html",
+  },
+  wcagNameRoleValue: {
+    source: "W3C Web Content Accessibility Guidelines (WCAG 2.0/2.1)",
+    title: "Understanding Success Criterion 4.1.2: Name, Role, Value",
+    summary:
+      "Requires every UI component (including form inputs, links, and buttons) to have a programmatically-determinable name, so assistive technology can describe it to the user — an input with no associated label, or a button with no accessible text, fails this.",
+    url: "https://www.w3.org/WAI/WCAG20/Understanding/name-role-value",
+  },
+  wcagContrastMinimum: {
+    source: "W3C Web Content Accessibility Guidelines (WCAG 2.1)",
+    title: "Understanding Success Criterion 1.4.3: Contrast (Minimum, Level AA)",
+    summary:
+      "Requires a contrast ratio of at least 4.5:1 between text and its background (3:1 for large text), to keep text readable for people with low vision or color-vision deficiencies.",
+    url: "https://www.w3.org/WAI/WCAG21/Understanding/contrast-minimum",
+  },
   wcagTargetSize: {
     source: "W3C Web Content Accessibility Guidelines (WCAG 2.1)",
     title: "Understanding Success Criterion 2.5.5: Target Size (Enhanced)",

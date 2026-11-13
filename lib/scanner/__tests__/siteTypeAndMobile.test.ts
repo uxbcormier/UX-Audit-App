@@ -24,6 +24,7 @@ function makePage(html: string, links: { href: string; text: string }[] = []): S
     screenshotDataUrl: null,
     interactiveElements: [],
     headingAudit: { h1Count: 1, visibleH1Count: 1 },
+    contrastAudit: null,
     evidenceComplete: true,
   };
 }

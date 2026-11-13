@@ -78,6 +78,13 @@ const METRIC_DEFINITIONS: MetricDefinition[] = [
     available: () => true,
     notAssessedNote: "Not assessed",
   },
+  {
+    metric: "Accessibility",
+    description:
+      "A subset of WCAG 2.1 that can be automatically verified (labels, link text, color contrast, and similar) — not a full accessibility audit.",
+    available: () => true,
+    notAssessedNote: "Not assessed",
+  },
 ];
 
 // Scores each of the 8 proprietary metrics from the evidence already

@@ -29,6 +29,7 @@ function makePage(
     interactiveElements: [],
     headingAudit:
       opts.headingAudit !== undefined ? opts.headingAudit : { h1Count: h1s.length, visibleH1Count: h1s.length },
+    contrastAudit: null,
     evidenceComplete: true,
   };
 }

@@ -43,6 +43,7 @@ function makeHomepage(): ScrapedPage {
     screenshotDataUrl: null,
     interactiveElements: [],
     headingAudit: { h1Count: 1, visibleH1Count: 1 },
+    contrastAudit: null,
     evidenceComplete: true,
   };
 }
@@ -94,6 +95,7 @@ describe("scanProductPage — pipeline-level failure handling", () => {
       screenshotDataUrl: null,
       interactiveElements: null,
       headingAudit: null,
+      contrastAudit: null,
       evidenceComplete: false,
     });
 
@@ -145,6 +147,7 @@ describe("scanProductPage — pipeline-level failure handling", () => {
         },
       ],
       headingAudit: { h1Count: 1, visibleH1Count: 1 },
+      contrastAudit: null,
       evidenceComplete: true,
     });
 

@@ -33,6 +33,18 @@ export interface HeadingAudit {
   visibleH1Count: number;
 }
 
+// Real computed-style contrast sampling against WCAG 1.4.3's own ratio
+// formula, captured the same way as the other live-evaluate evidence above
+// — cheerio has no computed/inherited CSS, so this genuinely can't be done
+// from the static HTML. Null means the capture failed (same condition as
+// interactiveElements/headingAudit being null): checks must withhold any
+// contrast finding rather than claim no issues exist.
+export interface ContrastAudit {
+  totalSampled: number;
+  failureCount: number;
+  failureExamples: string[];
+}
+
 export interface ScrapedPage {
   html: string;
   $: ReturnType<typeof cheerio.load>;
@@ -56,6 +68,9 @@ export interface ScrapedPage {
   // Real computed H1 visibility, or null on the same evaluation-failure
   // condition as interactiveElements. See HeadingAudit.
   headingAudit: HeadingAudit | null;
+  // Real computed-style contrast sample, or null on the same evaluation-
+  // failure condition as interactiveElements/headingAudit. See ContrastAudit.
+  contrastAudit: ContrastAudit | null;
   // True when this page's DOM capture is as complete as the scraper can
   // make it (interactiveElements !== null). Any check whose finding is
   // "X was NOT found anywhere on the page" should treat false here as a
@@ -231,12 +246,77 @@ export async function scrapeWithContext(
           visibleH1Count: h1Els.filter(isVisible).length,
         };
 
-        return { interactiveElements, headingAudit };
+        // Real computed-style contrast sampling (WCAG 1.4.3's own ratio
+        // formula) — genuinely needs a live render, since cheerio has no
+        // concept of computed/inherited CSS. Walks up from each sampled text
+        // node to find the nearest actual (non-transparent) background,
+        // since most text sits over an ancestor's background rather than
+        // its own.
+        const parseRgb = (value: string): { r: number; g: number; b: number; a: number } | null => {
+          const match = value.match(/rgba?\(([^)]+)\)/);
+          if (!match) return null;
+          const parts = match[1].split(",").map((p) => parseFloat(p.trim()));
+          return { r: parts[0], g: parts[1], b: parts[2], a: parts[3] !== undefined ? parts[3] : 1 };
+        };
+        const relativeLuminance = ({ r, g, b }: { r: number; g: number; b: number }): number => {
+          const toLinear = (c: number) => {
+            const cs = c / 255;
+            return cs <= 0.03928 ? cs / 12.92 : Math.pow((cs + 0.055) / 1.055, 2.4);
+          };
+          return 0.2126 * toLinear(r) + 0.7152 * toLinear(g) + 0.0722 * toLinear(b);
+        };
+        const effectiveBackground = (el: Element): { r: number; g: number; b: number } => {
+          let node: Element | null = el;
+          while (node) {
+            const bg = parseRgb(window.getComputedStyle(node).backgroundColor);
+            if (bg && bg.a > 0 && !(bg.r === 0 && bg.g === 0 && bg.b === 0 && bg.a === 0)) return bg;
+            node = node.parentElement;
+          }
+          return { r: 255, g: 255, b: 255 };
+        };
+
+        const textEls = Array.from(document.querySelectorAll("p, span, li, a, button, h1, h2, h3, h4, h5, h6, div"))
+          .filter((el) => el.children.length === 0 && (el.textContent ?? "").trim().length > 0 && isVisible(el))
+          .slice(0, 150);
+
+        let contrastFailureCount = 0;
+        const contrastFailureExamples: string[] = [];
+        for (const el of textEls) {
+          const style = window.getComputedStyle(el);
+          const fg = parseRgb(style.color);
+          if (!fg) continue;
+          const fontSize = parseFloat(style.fontSize);
+          const fontWeight = parseInt(style.fontWeight, 10) || 400;
+          const isLargeText = fontSize >= 24 || (fontSize >= 18.66 && fontWeight >= 700);
+          const bg = effectiveBackground(el);
+          const ratio = (() => {
+            const l1 = relativeLuminance(fg);
+            const l2 = relativeLuminance(bg);
+            const lighter = Math.max(l1, l2);
+            const darker = Math.min(l1, l2);
+            return (lighter + 0.05) / (darker + 0.05);
+          })();
+          const required = isLargeText ? 3 : 4.5;
+          if (ratio < required) {
+            contrastFailureCount++;
+            if (contrastFailureExamples.length < 3) {
+              contrastFailureExamples.push((el.textContent ?? "").replace(/\s+/g, " ").trim().slice(0, 60));
+            }
+          }
+        }
+        const contrastAudit = {
+          totalSampled: textEls.length,
+          failureCount: contrastFailureCount,
+          failureExamples: contrastFailureExamples,
+        };
+
+        return { interactiveElements, headingAudit, contrastAudit };
       })
       .catch(() => null);
 
     const interactiveElements = liveEvidence?.interactiveElements ?? null;
     const headingAudit = liveEvidence?.headingAudit ?? null;
+    const contrastAudit = liveEvidence?.contrastAudit ?? null;
 
     const html = await page.content();
     const $ = cheerio.load(html);
@@ -319,6 +399,7 @@ export async function scrapeWithContext(
       screenshotDataUrl,
       interactiveElements,
       headingAudit,
+      contrastAudit,
       evidenceComplete: interactiveElements !== null,
     };
   } finally {

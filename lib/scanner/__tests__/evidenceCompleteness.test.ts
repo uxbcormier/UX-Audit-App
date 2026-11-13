@@ -33,6 +33,7 @@ function makeHomepage(html: string, evidenceComplete: boolean): ScrapedPage {
     screenshotDataUrl: null,
     interactiveElements: evidenceComplete ? [] : null,
     headingAudit: evidenceComplete ? { h1Count: h1s.length, visibleH1Count: h1s.length } : null,
+    contrastAudit: null,
     evidenceComplete,
   };
 }

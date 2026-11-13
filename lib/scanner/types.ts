@@ -1,7 +1,7 @@
 import type { SiteType } from "./pageClassification";
 
 export type IssueSeverity = "critical" | "high" | "warning" | "low";
-export type IssueCategory = "SEO" | "UX" | "Trust" | "Performance" | "Conversion";
+export type IssueCategory = "SEO" | "UX" | "Trust" | "Performance" | "Conversion" | "Accessibility";
 export type IssueEffort = "low" | "medium" | "high";
 
 // Distinct from severity: severity is "how broken is this," businessImpact
@@ -27,7 +27,8 @@ export type ProprietaryMetric =
   | "Trust Coverage"
   | "Decision Complexity"
   | "Performance Risk"
-  | "Search Experience";
+  | "Search Experience"
+  | "Accessibility";
 
 export type EvidenceType =
   | "element-presence"

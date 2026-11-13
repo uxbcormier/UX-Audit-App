@@ -15,6 +15,7 @@ import {
   BadgeCheck,
   BookOpen,
   Lightbulb,
+  Accessibility,
 } from "lucide-react";
 import Link from "next/link";
 import type { TeaserResults, FullResults, AuditIssue, ProprietaryMetric, SourceLabel } from "@/lib/scanner/types";
@@ -38,6 +39,7 @@ const CATEGORY_ICON: Record<string, React.ReactNode> = {
   Trust: <Shield size={14} />,
   Performance: <Zap size={14} />,
   Conversion: <TrendingUp size={14} />,
+  Accessibility: <Accessibility size={14} />,
 };
 
 const METRIC_ORDER: ProprietaryMetric[] = [
@@ -49,6 +51,7 @@ const METRIC_ORDER: ProprietaryMetric[] = [
   "Decision Complexity",
   "Performance Risk",
   "Search Experience",
+  "Accessibility",
 ];
 
 // Status colors are reserved for meaning, never decoration — critical/high
@@ -703,9 +706,20 @@ export function ScanResultsView({ scan, paymentResult }: { scan: ScanData; payme
 
             {/* 4. High Impact Insights */}
             <section className="mb-8 border-t border-stone pt-8">
-              <h2 className="text-xs font-semibold uppercase tracking-[0.15em] text-stone-text mb-4">
+              <h2
+                className={`text-xs font-semibold uppercase tracking-[0.15em] text-stone-text ${
+                  results.categorySummary.Accessibility > 0 ? "mb-1" : "mb-4"
+                }`}
+              >
                 {scan.isPaid ? "All findings" : "High Impact Findings"}
               </h2>
+              {results.categorySummary.Accessibility > 0 && (
+                <p className="text-xs text-stone-text mb-4 leading-relaxed">
+                  Accessibility findings below cover a subset of WCAG 2.1 that can be checked
+                  automatically (labels, link text, color contrast, and similar) — they&apos;re not a full
+                  WCAG conformance audit, which requires manual testing.
+                </p>
+              )}
 
               <div className="flex flex-col gap-4">
                 {scan.isPaid
