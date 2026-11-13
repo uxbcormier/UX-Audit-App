@@ -66,9 +66,69 @@ model Scan {
   userId        String?
   user          User?      @relation(fields: [userId], references: [id])
   payment       Payment?
+  job           ScanJob?
+  pages         ScanPage[]
 
   @@index([userId])
   @@index([industry])
+}
+
+// Tracks a scan's execution lifecycle separately from Scan.status — a
+// finer-grained state machine (status below) that the execution pipeline
+// itself drives, while Scan.status stays mapped to the coarse
+// PENDING/RUNNING/COMPLETE/FAILED values the existing UI already polls on
+// (see lib/scanJob.ts's syncScanStatus), so nothing that reads Scan.status
+// today breaks. One row per Scan — 1:1, not 1:many, since Stage 1 doesn't
+// yet support running a scan's steps concurrently.
+model ScanJob {
+  id          String        @id @default(cuid())
+  scanId      String        @unique
+  scan        Scan          @relation(fields: [scanId], references: [id])
+  status      ScanJobStatus @default(QUEUED)
+  // Human-readable current step (e.g. "crawling", "analyzing-page-3") shown
+  // nowhere yet in Stage 1's UI, but persisted now so a later progress
+  // indicator doesn't need another migration.
+  step        String?
+  attempt     Int           @default(0)
+  maxAttempts Int           @default(3)
+  lastError   String?
+  startedAt   DateTime?
+  finishedAt  DateTime?
+  // Updated by the executing step on every meaningful progress tick.
+  // Staleness detection (app/api/scan/[id]/route.ts) checks how long it's
+  // been since this moved, not wall-clock time since the job was created —
+  // a real multi-page crawl can legitimately run for minutes, so "created
+  // more than 90s ago" was never a safe proxy for "stuck."
+  heartbeatAt DateTime?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+}
+
+// One row per URL the scan discovered or attempted — this is what makes
+// the website-coverage summary (pages discovered/scanned/failed/skipped) a
+// real query instead of invented report text. Stage 1 only populates rows
+// for pages the existing homepage+product-page logic actually visited;
+// Stage 2's real crawler is what starts writing PENDING/SKIPPED/
+// EXCLUDED_BY_BUDGET rows for pages it discovered but didn't (yet) visit.
+model ScanPage {
+  id            String         @id @default(cuid())
+  scanId        String
+  scan          Scan           @relation(fields: [scanId], references: [id])
+  url           String
+  pageType      String?
+  status        ScanPageStatus @default(PENDING)
+  skipReason    String?
+  // How this URL was found — "homepage", "sitemap", "internal-link", etc.
+  // Unused until Stage 2's real discovery process exists, but part of the
+  // schema now so Stage 2 doesn't need another migration either.
+  discoveredVia String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  // A retried job re-running the same URL upserts this row rather than
+  // inserting a duplicate — see lib/scanJob.ts's recordScannedPages.
+  @@unique([scanId, url])
+  @@index([scanId])
 }
 
 model Payment {
@@ -97,4 +157,22 @@ enum PaymentStatus {
   PAID
   FAILED
   REFUNDED
+}
+
+enum ScanJobStatus {
+  QUEUED
+  DISCOVERING
+  CRAWLING
+  ANALYZING
+  COMPLETED
+  PARTIALLY_COMPLETED
+  FAILED
+}
+
+enum ScanPageStatus {
+  PENDING
+  SCANNED
+  FAILED
+  SKIPPED
+  EXCLUDED_BY_BUDGET
 }
