@@ -17,7 +17,7 @@ const AUDIT_AREAS = [
   },
   {
     num: "03",
-    title: "Trust Coverage",
+    title: "Trust & Reassurance",
     desc: "The reviews, policies, and signals shoppers look for before entering payment details.",
   },
   {
@@ -27,7 +27,7 @@ const AUDIT_AREAS = [
   },
   {
     num: "05",
-    title: "Decision Complexity",
+    title: "Decision Clarity",
     desc: "Whether the page offers one clear next step, or forces shoppers to choose among too many.",
   },
 ];
@@ -162,7 +162,7 @@ export default function HomePage() {
         <div className="max-w-5xl mx-auto">
           <p className="text-stone-text text-sm mb-4">Included free, every scan</p>
           <div className="flex flex-wrap gap-x-10 gap-y-2 text-sm font-medium">
-            <span>UX score, 0–100</span>
+            <span>Overall score, 0–100</span>
             <span>Two full findings with evidence</span>
             <span>Count of high-impact issues found</span>
             <span>Above-the-fold screenshot</span>

@@ -6,7 +6,7 @@ import {
   advanceJob,
   completeJob,
   failJob,
-  recordScannedPages,
+  recordPageInventory,
   scanStatusForJob,
   startJobAttempt,
 } from "./scanJob";
@@ -31,14 +31,17 @@ export async function executeScan(scanId: string, url: string): Promise<void> {
 
     // Upserted by (scanId, url) — a retry re-recording the same pages
     // updates these rows instead of duplicating them.
-    await recordScannedPages(scanId, full.pagesInspected);
+    await recordPageInventory(scanId, full.pageInventory);
 
-    // Stage 1 still only ever visits a homepage and (optionally) one
-    // product page — "partial" here means the product page specifically
-    // couldn't be found/scanned, not a crawl-budget cutoff (there's no
-    // crawl yet to cut off). Stage 2's real crawler will give this a
-    // richer, budget-aware meaning.
-    const partial = !full.productPageScanned;
+    // "Partial" now means the crawl's own coverage genuinely fell short of
+    // what it discovered — either nothing confidently classified as a
+    // product page was found/scanned, or real pages were discovered beyond
+    // the homepage but this scan's budget/failures/time limit kept them
+    // from being scanned. A scan that found exactly as many pages as it
+    // scanned (e.g. a small site with nothing left over) is a complete
+    // scan of what exists, not a partial one.
+    const partial =
+      !full.productPageScanned || full.coverage.totalDiscovered > full.coverage.pagesScanned - 1;
     const job = await completeJob(scanId, { partial });
 
     await prisma.scan.update({

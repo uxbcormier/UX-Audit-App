@@ -43,13 +43,13 @@ const CATEGORY_ICON: Record<string, React.ReactNode> = {
 };
 
 const METRIC_ORDER: ProprietaryMetric[] = [
-  "Product Discovery Friction",
+  "Product Discovery Experience",
   "PDP Purchase Readiness",
-  "Checkout Friction",
-  "Mobile Friction",
-  "Trust Coverage",
-  "Decision Complexity",
-  "Performance Risk",
+  "Checkout Experience",
+  "Mobile Experience",
+  "Trust & Reassurance",
+  "Decision Clarity",
+  "Performance",
   "Search Experience",
   "Accessibility",
 ];
@@ -165,13 +165,15 @@ function ScoreHero({
       <span className="font-display text-7xl sm:text-8xl tracking-tight" style={{ lineHeight: 1 }}>
         <span className={scoreTextColor(score)}>{score}</span>
       </span>
-      <span className="text-xs uppercase tracking-[0.2em] text-stone-text mt-2">UX Score</span>
+      <span className="text-xs uppercase tracking-[0.2em] text-stone-text mt-2">Overall Score</span>
 
       <ScoreScale score={score} />
 
       <p className="text-sm text-ink mt-4 max-w-sm leading-relaxed font-medium">{interpretScore(score)}</p>
       <p className="text-xs text-stone-text mt-1 max-w-sm leading-relaxed">
-        Reflects severity-weighted, verified evidence gaps — not a measured conversion rate.
+        Reflects severity-weighted, verified evidence gaps across every category this scan checked
+        (SEO, UX, Trust, Performance, Accessibility) — not a measured conversion rate, and not a
+        WCAG compliance score on its own.
       </p>
 
       {categoryEntries.length > 0 && (
@@ -184,6 +186,30 @@ function ScoreHero({
           ))}
         </p>
       )}
+
+      <details className="mt-3 max-w-sm">
+        <summary className="text-[11px] text-forest cursor-pointer select-none">
+          How this score is calculated
+        </summary>
+        <div className="mt-2 text-[11px] text-stone-text leading-relaxed space-y-1.5">
+          <p>
+            Every verified finding has a severity. Score = 100 minus the sum of each finding&apos;s
+            severity weight, floored at 0:
+          </p>
+          <ul className="list-disc list-inside">
+            <li>Critical: −25</li>
+            <li>High: −15</li>
+            <li>Warning: −8</li>
+            <li>Low: −3</li>
+          </ul>
+          <p>
+            Only confirmed findings count against the score — a check this scan couldn&apos;t
+            conclusively verify is reported separately as a limitation and never deducts points.
+            Each check contributes at most one finding, so nothing is penalized twice for the same
+            issue.
+          </p>
+        </div>
+      </details>
 
       <p className="text-xs text-stone-text mt-2">
         <span className="text-ink">{totalIssueCount}</span> verified finding{totalIssueCount !== 1 ? "s" : ""}
@@ -428,29 +454,128 @@ function IssueCard({ issue, blurred }: { issue: AuditIssue; blurred?: boolean })
   );
 }
 
-// The single highest-priority verified finding, surfaced directly beneath
-// the score — answers "what's the one thing I should look at" instead of
-// making the visitor open a card to find out.
-function PriorityOpportunityCard({ issue }: { issue: AuditIssue }) {
+// A real, queryable record of what this scan actually inspected — never a
+// claim of full-site coverage. coverage is always present (teaser or full);
+// pageInventory (the per-URL list with why each one was/wasn't scanned) is
+// paid-only, same pattern as `recommendations`.
+function WebsiteCoverage({
+  coverage,
+  pageInventory,
+}: {
+  coverage: TeaserResults["coverage"];
+  pageInventory?: FullResults["pageInventory"];
+}) {
+  const extraNote =
+    coverage.totalDiscovered > coverage.pagesScanned - 1
+      ? `${coverage.totalDiscovered} page${coverage.totalDiscovered === 1 ? "" : "s"} beyond the homepage were discovered in total — this scan inspected a representative sample within its budget, not every page.`
+      : coverage.totalDiscovered > 0
+        ? `All ${coverage.totalDiscovered} additional discovered page${coverage.totalDiscovered === 1 ? "" : "s"} were inspected.`
+        : null;
+
+  const STATUS_LABEL: Record<string, string> = {
+    FAILED: "failed to load",
+    SKIPPED: "skipped",
+    EXCLUDED_BY_BUDGET: "excluded by this scan's budget",
+  };
+
   return (
-    <div className="border border-ink p-5">
-      <div className="flex items-center justify-between gap-3 mb-2">
-        <span className="text-xs font-semibold uppercase tracking-wide px-2 py-0.5 border border-ink">
-          {issue.severity}
-        </span>
-        <span className="text-xs text-stone-text">{EFFORT_LABEL[issue.effort]}</span>
-      </div>
-      <h3 className="font-display text-xl text-ink mb-1">{issue.title}</h3>
-      <p className="text-xs text-stone-text mb-3 truncate" title={issue.pageUrl}>
-        {issue.pageUrl}
+    <div className="mt-2">
+      <p className="text-xs text-stone-text">
+        <span className="text-ink">{coverage.pagesScanned}</span> page
+        {coverage.pagesScanned === 1 ? "" : "s"} inspected across{" "}
+        <span className="text-ink">{coverage.pageTypesScanned.length}</span> page type
+        {coverage.pageTypesScanned.length === 1 ? "" : "s"} ({coverage.pageTypesScanned.join(", ")})
+        {" · "}
+        {coverage.sitemapFound ? "sitemap found" : "no sitemap found, discovered via internal links"}
+        {" · crawl budget: "}
+        {coverage.crawlBudget} pages
       </p>
-      <p className="text-[15px] text-ink mb-2 leading-relaxed">{issue.observation}</p>
-      <p className="text-sm text-stone-text mb-3">{issue.businessImplication}</p>
-      <div className="bg-forest/5 border border-forest/30 px-3 py-2.5">
-        <p className="text-[10px] font-semibold uppercase tracking-wide text-forest mb-1">Recommendation</p>
-        <p className="text-sm text-ink leading-relaxed">{issue.recommendation}</p>
-      </div>
+      {extraNote && <p className="text-xs text-stone-text mt-1">{extraNote}</p>}
+      {(coverage.pagesFailed > 0 || coverage.pagesSkipped > 0 || coverage.pagesExcludedByBudget > 0) && (
+        <p className="text-xs text-stone-text mt-1">
+          {coverage.pagesFailed > 0 && <>{coverage.pagesFailed} failed to load</>}
+          {coverage.pagesFailed > 0 && (coverage.pagesSkipped > 0 || coverage.pagesExcludedByBudget > 0) && " · "}
+          {coverage.pagesSkipped > 0 && <>{coverage.pagesSkipped} skipped (robots.txt / checkout)</>}
+          {coverage.pagesSkipped > 0 && coverage.pagesExcludedByBudget > 0 && " · "}
+          {coverage.pagesExcludedByBudget > 0 && <>{coverage.pagesExcludedByBudget} excluded by budget</>}
+        </p>
+      )}
+      {pageInventory && pageInventory.length > 0 && (
+        <details className="mt-2">
+          <summary className="text-[11px] text-forest cursor-pointer select-none">
+            Show every discovered URL ({pageInventory.length})
+          </summary>
+          <ul className="mt-1.5 flex flex-col gap-1 max-h-64 overflow-y-auto">
+            {pageInventory.map((p, i) => (
+              <li key={i} className="font-mono text-[11px] text-stone-text break-all border-l-2 border-stone pl-2">
+                [{p.status === "SCANNED" ? p.pageType ?? "scanned" : STATUS_LABEL[p.status] ?? p.status}] {p.url}
+                {p.skipReason && <span className="text-stone-text/70"> — {p.skipReason}</span>}
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
     </div>
+  );
+}
+
+// One of the top-ranked verified findings, surfaced directly beneath the
+// score — rank 1 is expanded by default (answers "what's the one thing I
+// should look at" without an extra click), ranks 2-3 are collapsed behind
+// a <summary> so the list stays scannable rather than three full cards
+// stacked at once.
+function PriorityOpportunityCard({
+  issue,
+  rank,
+  defaultOpen,
+  blurred,
+}: {
+  issue: AuditIssue;
+  rank: number;
+  defaultOpen: boolean;
+  blurred?: boolean;
+}) {
+  const pageLabel =
+    issue.affectedPageCount > 1
+      ? `Affects ${issue.affectedPageCount} pages inspected in this scan`
+      : issue.pageUrl;
+
+  return (
+    <details className={`relative border border-ink ${blurred ? "select-none" : ""}`} open={!blurred && defaultOpen}>
+      {blurred && (
+        <div className="absolute inset-0 backdrop-blur-sm bg-paper/85 flex flex-col items-center justify-center gap-1.5 z-10">
+          <Lock size={18} className="text-stone-text" />
+          <span className="text-xs text-stone-text">Unlock to view</span>
+        </div>
+      )}
+      <summary className="p-5 cursor-pointer select-none list-none">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="font-display text-lg text-stone-text shrink-0">#{rank}</span>
+            <h3 className="font-display text-xl text-ink truncate">{issue.title}</h3>
+          </div>
+          <span className="text-xs font-semibold uppercase tracking-wide px-2 py-0.5 border border-ink shrink-0">
+            {issue.severity}
+          </span>
+        </div>
+        {!blurred && (
+          <p className="text-xs text-stone-text mt-1.5 truncate" title={pageLabel}>
+            {pageLabel}
+          </p>
+        )}
+      </summary>
+      {!blurred && (
+        <div className="px-5 pb-5">
+          <p className="text-[15px] text-ink mb-2 leading-relaxed">{issue.observation}</p>
+          <p className="text-sm text-stone-text mb-3">{issue.businessImplication}</p>
+          <div className="bg-forest/5 border border-forest/30 px-3 py-2.5 mb-3">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-forest mb-1">Recommendation</p>
+            <p className="text-sm text-ink leading-relaxed">{issue.recommendation}</p>
+          </div>
+          <p className="text-xs text-stone-text">Implementation effort: {EFFORT_LABEL[issue.effort]}</p>
+        </div>
+      )}
+    </details>
   );
 }
 
@@ -519,7 +644,13 @@ export function ScanResultsView({ scan, paymentResult }: { scan: ScanData; payme
   const results = full ?? teaser;
 
   const highImpactCount = results?.opportunitySummary.highImpactCount ?? 0;
-  const topIssue = results?.issues[0] ?? null;
+  // Drawn only from the same critical/high issues highImpactCount counts
+  // (results.issues is already sorted by severity weight descending — see
+  // groupIssuesAcrossPages/sort in index.ts) — so "N high-impact
+  // opportunities, here are the top M" is always reconciled: M is never
+  // more than N, and every card shown is genuinely one of the N, never a
+  // lower-severity finding padded in to fill out a list of 3.
+  const topIssues = (results?.issues ?? []).filter((i) => i.severity === "critical" || i.severity === "high").slice(0, 3);
 
   return (
     <main className="min-h-screen bg-paper">
@@ -623,9 +754,7 @@ export function ScanResultsView({ scan, paymentResult }: { scan: ScanData; payme
                   <img src={results.screenshotUrl} alt={`Screenshot of ${scan.url}`} className="w-full block" />
                 </div>
               )}
-              <p className="text-xs text-stone-text mt-2">
-                Scanned: {results.pagesInspected.map((p) => p.type).join(" + ")}
-              </p>
+              <WebsiteCoverage coverage={results.coverage} pageInventory={scan.isPaid ? full?.pageInventory : undefined} />
               {results.siteType === "general" && (
                 <p className="text-xs text-stone-text mt-1">
                   This doesn&apos;t look like an online store, so ecommerce-only checks (payment icons, return policy, site search) were skipped — findings below cover universal UX best practices instead.
@@ -672,12 +801,21 @@ export function ScanResultsView({ scan, paymentResult }: { scan: ScanData; payme
 
               <p className="text-sm text-stone-text mb-5 max-w-md">
                 {highImpactCount} high-impact opportunit{highImpactCount === 1 ? "y" : "ies"} verified in this
-                scan, ranked by business impact and effort to fix. Here&apos;s the top one:
+                scan, ranked by business impact and effort to fix
+                {topIssues.length > 1 ? " — here are the top" + (topIssues.length === 3 ? " 3" : ` ${topIssues.length}`) : ""}:
               </p>
 
-              {topIssue && (
-                <div className="mb-5">
-                  <PriorityOpportunityCard issue={topIssue} />
+              {topIssues.length > 0 && (
+                <div className="flex flex-col gap-3 mb-5">
+                  {topIssues.map((issue, i) => (
+                    <PriorityOpportunityCard
+                      key={issue.id}
+                      issue={issue}
+                      rank={i + 1}
+                      defaultOpen={i === 0}
+                      blurred={!scan.isPaid && i === 2}
+                    />
+                  ))}
                 </div>
               )}
 

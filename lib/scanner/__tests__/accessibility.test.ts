@@ -193,6 +193,99 @@ describe("a11y-low-contrast-text", () => {
   });
 });
 
+describe("cookie-consent widgets are excluded from accessibility findings", () => {
+  it("does not flag an unlabeled input inside a OneTrust consent banner", () => {
+    const page = makePage(
+      `<html lang="en"><body>
+        <div id="onetrust-banner-sdk"><input type="email" /></div>
+      </body></html>`
+    );
+    const { issues } = runAccessibilityChecks(page);
+    expect(issues.map((i) => i.id)).not.toContain("a11y-unlabeled-inputs");
+  });
+
+  it("does not flag an unnamed button inside a Cookiebot dialog", () => {
+    const page = makePage(
+      `<html lang="en"><body>
+        <div id="CybotCookiebotDialog"><button><svg></svg></button></div>
+      </body></html>`
+    );
+    const { issues } = runAccessibilityChecks(page);
+    expect(issues.map((i) => i.id)).not.toContain("a11y-unnamed-interactive-element");
+  });
+
+  it("does not flag a non-descriptive link inside a generic cookie-notice container", () => {
+    const page = makePage(
+      `<html lang="en"><body>
+        <div class="cookie-notice-banner"><a href="/privacy">Learn More</a></div>
+      </body></html>`
+    );
+    const { issues } = runAccessibilityChecks(page);
+    expect(issues.map((i) => i.id)).not.toContain("a11y-non-descriptive-links");
+  });
+
+  it("still flags the same defects when they occur OUTSIDE a cookie-consent container", () => {
+    const page = makePage(
+      `<html lang="en"><body>
+        <input type="email" />
+        <a href="/privacy">Learn More</a>
+      </body></html>`
+    );
+    const { issues } = runAccessibilityChecks(page);
+    expect(issues.map((i) => i.id)).toContain("a11y-unlabeled-inputs");
+    expect(issues.map((i) => i.id)).toContain("a11y-non-descriptive-links");
+  });
+});
+
+describe("real element evidence (not just a reconstructed tag name)", () => {
+  it("includes the actual id/name/type attributes of an unlabeled field in its evidence examples", () => {
+    const page = makePage(
+      `<html lang="en"><body><input type="email" name="newsletter-signup" id="mc-email" /></body></html>`
+    );
+    const { issues } = runAccessibilityChecks(page);
+    const finding = issues.find((i) => i.id === "a11y-unlabeled-inputs");
+    expect(finding!.evidence.examples?.[0]).toContain('name="newsletter-signup"');
+    expect(finding!.evidence.examples?.[0]).toContain('id="mc-email"');
+    expect(finding!.evidence.examples?.[0]).toContain('type="email"');
+  });
+
+  it("includes real attributes for an unnamed interactive element", () => {
+    const page = makePage(`<html lang="en"><body><a href="/cart" class="icon-cart-link"><svg></svg></a></body></html>`);
+    const { issues } = runAccessibilityChecks(page);
+    const finding = issues.find((i) => i.id === "a11y-unnamed-interactive-element");
+    expect(finding!.evidence.examples?.[0]).toContain('class="icon-cart-link"');
+    expect(finding!.evidence.examples?.[0]).toContain("href=");
+  });
+});
+
+describe("valid alternative accessible-naming techniques are recognized", () => {
+  it("does not flag an input with only an aria-label as unlabeled", () => {
+    const page = makePage(`<html lang="en"><body><input type="text" aria-label="Search products" /></body></html>`);
+    const { issues } = runAccessibilityChecks(page);
+    expect(issues.map((i) => i.id)).not.toContain("a11y-unlabeled-inputs");
+  });
+
+  it("does not flag an input named via aria-labelledby pointing at real visible text", () => {
+    const page = makePage(
+      `<html lang="en"><body><span id="qty-label">Quantity</span><input type="number" aria-labelledby="qty-label" /></body></html>`
+    );
+    const { issues } = runAccessibilityChecks(page);
+    expect(issues.map((i) => i.id)).not.toContain("a11y-unlabeled-inputs");
+  });
+
+  it("does not flag an input with only a title attribute as unlabeled", () => {
+    const page = makePage(`<html lang="en"><body><input type="text" title="Promo code" /></body></html>`);
+    const { issues } = runAccessibilityChecks(page);
+    expect(issues.map((i) => i.id)).not.toContain("a11y-unlabeled-inputs");
+  });
+
+  it("still flags an input with a merely visual placeholder and no real accessible name", () => {
+    const page = makePage(`<html lang="en"><body><input type="text" placeholder="Promo code" /></body></html>`);
+    const { issues } = runAccessibilityChecks(page);
+    expect(issues.map((i) => i.id)).toContain("a11y-unlabeled-inputs");
+  });
+});
+
 describe("research citation integrity (accessibility citations)", () => {
   it("every new accessibility citation has a real w3.org url", async () => {
     const { RESEARCH_LIBRARY } = await import("../research");

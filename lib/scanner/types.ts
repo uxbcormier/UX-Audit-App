@@ -20,13 +20,13 @@ export type SourceLabel = "observed" | "research-supported" | "internal-heuristi
 // old approach of summing invented per-issue "+X% conversion" claims into
 // a single number — see lib/scanner/metrics.ts for how these are scored.
 export type ProprietaryMetric =
-  | "Product Discovery Friction"
+  | "Product Discovery Experience"
   | "PDP Purchase Readiness"
-  | "Checkout Friction"
-  | "Mobile Friction"
-  | "Trust Coverage"
-  | "Decision Complexity"
-  | "Performance Risk"
+  | "Checkout Experience"
+  | "Mobile Experience"
+  | "Trust & Reassurance"
+  | "Decision Clarity"
+  | "Performance"
   | "Search Experience"
   | "Accessibility";
 
@@ -106,11 +106,56 @@ export interface DraftIssue {
   researchContext?: ResearchCitation[];
 }
 
+// The status of one discovered URL within a scan's crawl — this is what
+// makes the website-coverage summary (pages discovered/scanned/skipped/
+// excluded, and why) a real, queryable record instead of invented report
+// text. SCANNED means checks actually ran against it; the other three are
+// all "we found this URL but didn't run checks against it," distinguished
+// by why not.
+export type ScanPageRecordStatus = "SCANNED" | "FAILED" | "SKIPPED" | "EXCLUDED_BY_BUDGET";
+
+export interface ScanPageRecord {
+  url: string;
+  pageType: string | null;
+  status: ScanPageRecordStatus;
+  // Populated for FAILED (the scrape error), SKIPPED (e.g. "disallowed by
+  // robots.txt", "checkout pages are not crawled"), and EXCLUDED_BY_BUDGET
+  // (e.g. "crawl budget reached", "time budget reached"). Null for SCANNED.
+  skipReason: string | null;
+  discoveredVia: "homepage" | "sitemap" | "homepage-link" | null;
+}
+
+export interface CoverageSummary {
+  // Every in-scope URL found via sitemap + homepage links, not counting
+  // the homepage itself.
+  totalDiscovered: number;
+  // Including the homepage.
+  pagesScanned: number;
+  pagesFailed: number;
+  pagesSkipped: number;
+  pagesExcludedByBudget: number;
+  sitemapFound: boolean;
+  crawlBudget: number;
+  pageTypesScanned: string[];
+}
+
 export interface AuditIssue extends DraftIssue {
   // The specific page this finding was observed on — stamped on in
   // index.ts (see DraftIssue) so every finding can say exactly where it
-  // applies rather than leaving that implicit.
+  // applies rather than leaving that implicit. When the same check id
+  // fires on more than one scanned page, this is the first page it was
+  // found on; affectedPageUrls below has the full set.
   pageUrl: string;
+  // How many scanned pages this exact finding (same check id) was observed
+  // on — 1 for a page-specific finding. Set by groupIssuesAcrossPages() in
+  // index.ts, which is the ONLY place that should ever merge same-id
+  // findings from different pages into one; a check itself never sees more
+  // than the one page it ran against, so it can't compute this.
+  affectedPageCount: number;
+  // The actual page URLs this finding was observed on, capped at a few
+  // representative examples (not a full dump) — real data only, same
+  // discipline as Evidence.examples.
+  affectedPageUrls: string[];
 }
 
 export interface MetricResult {
@@ -180,6 +225,11 @@ export interface TeaserResults {
   // Every page the scan actually inspected, with how it was classified —
   // shown in the report so it never implies broader coverage than this.
   pagesInspected: { url: string; type: string }[];
+  // The real discovery/crawl numbers — see CoverageSummary. Always present
+  // (even a homepage-only scan reports coverage: totalDiscovered may be 0
+  // if nothing else was found, or positive if more existed but budget/
+  // robots/failures kept them from being scanned).
+  coverage: CoverageSummary;
   // Honest disclosures of what the scan could NOT confirm (e.g. a
   // purchase-action button whose visibility couldn't be verified). These
   // never reduce the score and are never presented as confirmed defects —
@@ -192,4 +242,8 @@ export interface FullResults extends TeaserResults {
   recommendations: string[];
   pageUrl: string;
   scannedAt: string;
+  // Every discovered URL this scan considered, scanned or not, with why —
+  // the "inspectable list of scanned URLs" a merchant can check exactly
+  // what was (and wasn't) looked at. Paid-only, like recommendations.
+  pageInventory: ScanPageRecord[];
 }

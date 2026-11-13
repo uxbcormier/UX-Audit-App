@@ -1,5 +1,6 @@
 import type { ScanJobStatus } from "@prisma/client";
 import { prisma } from "./prisma";
+import type { ScanPageRecord } from "./scanner/types";
 
 // Keeps Scan.status (the coarse PENDING/RUNNING/COMPLETE/FAILED value the
 // existing report page already polls on) in sync with ScanJob's finer
@@ -85,13 +86,14 @@ export async function failJob(scanId: string, error: string) {
   });
 }
 
-// Upserts one ScanPage row per page the scan actually visited, keyed on
-// (scanId, url) — a retry re-running the same URL updates the existing row
-// rather than inserting a duplicate (see ScanPage's @@unique([scanId, url])
-// in prisma/schema.prisma). Stage 1 only ever records SCANNED rows, since
-// the homepage+product-page logic it wraps doesn't yet track discovered-
-// but-unvisited URLs — that starts with Stage 2's real crawler.
-export async function recordScannedPages(scanId: string, pages: { url: string; type: string }[]) {
+// Upserts one ScanPage row per URL the scan's crawl considered — scanned,
+// failed, skipped (robots/checkout), or excluded by budget — keyed on
+// (scanId, url), so a retry re-considering the same URL updates the
+// existing row rather than inserting a duplicate (see ScanPage's
+// @@unique([scanId, url]) in prisma/schema.prisma). This is the real
+// per-URL inventory behind the report's coverage summary (see
+// lib/scanner/types.ts's ScanPageRecord and CoverageSummary).
+export async function recordPageInventory(scanId: string, pages: ScanPageRecord[]) {
   await Promise.all(
     pages.map((p) =>
       prisma.scanPage.upsert({
@@ -99,11 +101,12 @@ export async function recordScannedPages(scanId: string, pages: { url: string; t
         create: {
           scanId,
           url: p.url,
-          pageType: p.type,
-          status: "SCANNED",
-          discoveredVia: p.type === "homepage" ? "homepage" : "homepage-link",
+          pageType: p.pageType,
+          status: p.status,
+          skipReason: p.skipReason,
+          discoveredVia: p.discoveredVia,
         },
-        update: { pageType: p.type, status: "SCANNED", skipReason: null },
+        update: { pageType: p.pageType, status: p.status, skipReason: p.skipReason },
       })
     )
   );

@@ -1,9 +1,10 @@
 import type { AuditIssue, IssueSeverity, MetricResult, ProprietaryMetric } from "./types";
 
 // The single severity-weight table behind every score in the app — the
-// overall UX score and every per-metric score below both use this, so a
-// "critical" finding always costs the same regardless of which rollup is
-// reading it.
+// overall score (a blend across every category the scan checked: SEO, UX,
+// Trust, Performance, Accessibility) and every per-metric score below both
+// use this, so a "critical" finding always costs the same regardless of
+// which rollup is reading it.
 export const SEVERITY_WEIGHT: Record<IssueSeverity, number> = {
   critical: 25,
   high: 15,
@@ -23,7 +24,7 @@ interface MetricDefinition {
   description: string;
   // Whether this scan was even capable of speaking to this metric, given
   // what was actually scanned. A metric nothing could evaluate (e.g.
-  // Checkout Friction — no checkout flow is scanned) is reported as "not
+  // Checkout Experience — no checkout flow is scanned) is reported as "not
   // assessed" rather than defaulting to a score that implies a clean pass.
   available: (ctx: MetricContext) => boolean;
   notAssessedNote: string;
@@ -31,7 +32,7 @@ interface MetricDefinition {
 
 const METRIC_DEFINITIONS: MetricDefinition[] = [
   {
-    metric: "Product Discovery Friction",
+    metric: "Product Discovery Experience",
     description: "How easily shoppers can find products through navigation and site search.",
     available: () => true,
     notAssessedNote: "Not assessed",
@@ -43,31 +44,31 @@ const METRIC_DEFINITIONS: MetricDefinition[] = [
     notAssessedNote: "Not assessed — no product page was found to scan alongside the homepage",
   },
   {
-    metric: "Checkout Friction",
-    description: "Friction in the cart and checkout flow.",
+    metric: "Checkout Experience",
+    description: "How smooth the cart and checkout flow is.",
     available: () => false,
     notAssessedNote: "Not assessed — this scan covers the homepage and a product page, not the checkout flow",
   },
   {
-    metric: "Mobile Friction",
+    metric: "Mobile Experience",
     description: "Mobile page load speed and rendering quality.",
     available: () => true,
     notAssessedNote: "Not assessed",
   },
   {
-    metric: "Trust Coverage",
+    metric: "Trust & Reassurance",
     description: "Signals shoppers use to judge legitimacy — reviews, policies, security language.",
     available: () => true,
     notAssessedNote: "Not assessed",
   },
   {
-    metric: "Decision Complexity",
+    metric: "Decision Clarity",
     description: "Whether the page offers one clear next step, or too many competing ones.",
     available: () => true,
     notAssessedNote: "Not assessed",
   },
   {
-    metric: "Performance Risk",
+    metric: "Performance",
     description: "Core Web Vitals and server response time.",
     available: ({ pageSpeedAvailable }) => pageSpeedAvailable,
     notAssessedNote: "Not assessed — the PageSpeed check didn't return in time for this scan",
@@ -87,7 +88,7 @@ const METRIC_DEFINITIONS: MetricDefinition[] = [
   },
 ];
 
-// Scores each of the 8 proprietary metrics from the evidence already
+// Scores each of the proprietary metrics from the evidence already
 // collected, rather than producing a single additive "conversion lift %."
 // A metric's score is a straightforward severity-weighted deduction among
 // only the issues that feed it — transparent and re-derivable from the

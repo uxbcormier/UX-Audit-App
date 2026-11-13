@@ -18,6 +18,59 @@ const NON_DESCRIPTIVE_LINK_TEXT = /^(click here|read more|learn more|more|here|t
 const MIN_CONTRAST_SAMPLE = 5;
 const CONTRAST_FAILURE_RATIO = 0.2;
 
+// Recognized containers from the major cookie-consent/CMP providers
+// (OneTrust, Cookiebot, Osano, TrustArc, Quantcast Choice, and the
+// Insites/CookieConsent library), plus a generic id/class fallback. A
+// consent banner is third-party-injected markup the site owner usually
+// doesn't directly control the internals of — attributing its accessibility
+// defects to "the site" would be misleading, so these checks exclude
+// anything inside one rather than flagging it as the site's own problem.
+// This scanner never interacts with (clicks/accepts/dismisses) these
+// banners — it only reads the static/rendered DOM, same as everywhere else.
+const COOKIE_CONSENT_SELECTOR = [
+  "#onetrust-banner-sdk",
+  "#onetrust-consent-sdk",
+  "#CybotCookiebotDialog",
+  "#CookiebotWidget",
+  ".osano-cm-window",
+  "#osano-cm-dom-info",
+  "#truste-consent-track",
+  ".truste_box_overlay",
+  "#trustarc-banner-container",
+  "#qc-cmp2-container",
+  ".qc-cmp2-container",
+  ".cc-window",
+  ".cc-banner",
+  '[id*="cookie-consent" i]',
+  '[class*="cookie-consent" i]',
+  '[id*="cookie-banner" i]',
+  '[class*="cookie-banner" i]',
+  '[id*="cookie-notice" i]',
+  '[class*="cookie-notice" i]',
+].join(", ");
+
+function isInCookieConsentWidget($: ScrapedPage["$"], el: Element): boolean {
+  return $(el).closest(COOKIE_CONSENT_SELECTOR).length > 0;
+}
+
+// A bounded, real representation of the affected element — actual
+// attribute values only, never fabricated — so a finding can show
+// "here's exactly the element" rather than just a reconstructed tag name.
+// Capped well short of a full outerHTML dump (which could be enormous for
+// a wrapping element with deep children).
+function elementSummary($: ScrapedPage["$"], el: Element, maxLen = 140): string {
+  const $el = $(el);
+  const tag = el.tagName?.toLowerCase() ?? "element";
+  const attrOrder = ["id", "name", "type", "role", "placeholder", "aria-label", "aria-labelledby", "class", "href"];
+  const parts: string[] = [];
+  for (const attr of attrOrder) {
+    const value = $el.attr(attr);
+    if (value) parts.push(`${attr}="${value}"`);
+  }
+  const summary = `<${tag}${parts.length ? " " + parts.join(" ") : ""}>`;
+  return summary.length > maxLen ? summary.slice(0, maxLen - 1) + "…" : summary;
+}
+
 function accessibleNameFor($: ScrapedPage["$"], el: Element): string {
   const $el = $(el);
   const ariaLabel = $el.attr("aria-label")?.trim();
@@ -89,22 +142,26 @@ export function runAccessibilityChecks(page: ScrapedPage): { issues: DraftIssue[
   // defect pattern found, not an absence claim, so this doesn't need
   // evidence-completeness gating: an incomplete capture could only make the
   // count an undercount, never a false positive.
-  const formControls = $(FORM_CONTROL_SELECTOR).toArray();
+  // Excludes cookie-consent-widget form controls (if any) — third-party
+  // markup the site doesn't directly author, so it isn't counted against
+  // the underlying site's own form fields (see isInCookieConsentWidget).
+  const formControls = $(FORM_CONTROL_SELECTOR)
+    .toArray()
+    .filter((el) => !isInCookieConsentWidget($, el));
   const unlabeledControls = formControls.filter((el) => {
     const $el = $(el);
     const id = $el.attr("id");
     const hasForLabel = id ? $(`label[for="${CSS_ESCAPE(id)}"]`).length > 0 : false;
     const isWrappedInLabel = $el.closest("label").length > 0;
+    // accessibleNameFor already recognizes aria-label, aria-labelledby, a
+    // wrapping/associated <label>, and title — a field with any of those
+    // valid alternative accessible-naming techniques is never flagged here
+    // just for lacking a traditional <label> element.
     return !hasForLabel && !isWrappedInLabel && !accessibleNameFor($, el);
   });
 
   if (unlabeledControls.length > 0) {
-    const examples = unlabeledControls.slice(0, 3).map((el) => {
-      const $el = $(el);
-      const tag = el.tagName?.toLowerCase() ?? "input";
-      const type = $el.attr("type");
-      return type ? `<${tag} type="${type}">` : `<${tag}>`;
-    });
+    const examples = unlabeledControls.slice(0, 3).map((el) => elementSummary($, el));
     issues.push({
       id: "a11y-unlabeled-inputs",
       category: "Accessibility",
@@ -131,10 +188,16 @@ export function runAccessibilityChecks(page: ScrapedPage): { issues: DraftIssue[
   }
 
   // Links/buttons with no accessible name at all (WCAG 4.1.2, Level A).
-  const interactiveEls = $('a[href], button, [role="button"]').toArray();
+  // Excludes cookie-consent-widget controls (its own accept/reject/manage
+  // buttons are third-party markup, not the site's own — see
+  // isInCookieConsentWidget). This scanner never clicks them either way.
+  const interactiveEls = $('a[href], button, [role="button"]')
+    .toArray()
+    .filter((el) => !isInCookieConsentWidget($, el));
   const unnamedInteractive = interactiveEls.filter((el) => !accessibleNameFor($, el));
 
   if (unnamedInteractive.length > 0) {
+    const examples = unnamedInteractive.slice(0, 3).map((el) => elementSummary($, el));
     issues.push({
       id: "a11y-unnamed-interactive-element",
       category: "Accessibility",
@@ -146,6 +209,7 @@ export function runAccessibilityChecks(page: ScrapedPage): { issues: DraftIssue[
         type: "count",
         detail: `${unnamedInteractive.length} <a>/<button>/[role=button] element(s) found with no determinable accessible name.`,
         value: unnamedInteractive.length,
+        examples,
       },
       behavioralExplanation:
         "A screen reader announces these as just \"link\" or \"button\" with nothing else — the user has no way to know what it does without guessing.",
@@ -163,6 +227,7 @@ export function runAccessibilityChecks(page: ScrapedPage): { issues: DraftIssue[
   // accessible name is exactly a vague phrase with no other context.
   const nonDescriptiveLinks = $("a[href]")
     .toArray()
+    .filter((el) => !isInCookieConsentWidget($, el))
     .filter((el) => {
       const name = accessibleNameFor($, el);
       return name !== "" && NON_DESCRIPTIVE_LINK_TEXT.test(name);
@@ -180,6 +245,7 @@ export function runAccessibilityChecks(page: ScrapedPage): { issues: DraftIssue[
         type: "count",
         detail: `${nonDescriptiveLinks.length} <a> element(s) found whose entire accessible name matches a non-descriptive phrase.`,
         value: nonDescriptiveLinks.length,
+        examples: nonDescriptiveLinks.slice(0, 3).map((el) => elementSummary($, el)),
       },
       behavioralExplanation:
         "Screen-reader users often jump between pages via a links-only list — out of that context, \"click here\" or \"read more\" says nothing about where it goes.",

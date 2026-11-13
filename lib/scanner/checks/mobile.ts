@@ -34,7 +34,7 @@ export function runMobileChecks(audit: MobileRenderAudit | null): {
     issues.push({
       id: "mobile-horizontal-overflow",
       category: "UX",
-      metric: "Mobile Friction",
+      metric: "Mobile Experience",
       severity: "critical",
       title: "Page content overflows the mobile viewport width",
       observation: `At a ${audit.viewportWidth}px-wide mobile viewport, the page's rendered content is ${audit.scrollWidth}px wide — wider than the screen.`,
@@ -61,7 +61,7 @@ export function runMobileChecks(audit: MobileRenderAudit | null): {
       issues.push({
         id: "mobile-small-tap-targets",
         category: "UX",
-        metric: "Mobile Friction",
+        metric: "Mobile Experience",
         severity: "warning",
         title: "Many tap targets are smaller than recommended on mobile",
         observation: `${audit.undersizedTapTargetCount} of ${audit.totalVisibleTapTargets} visible links/buttons are smaller than 44x44px at a mobile viewport width.`,
@@ -93,7 +93,7 @@ export function runMobileChecks(audit: MobileRenderAudit | null): {
       issues.push({
         id: "mobile-small-text",
         category: "UX",
-        metric: "Mobile Friction",
+        metric: "Mobile Experience",
         severity: "warning",
         title: "Body text is smaller than comfortable to read on mobile",
         observation: `${audit.smallBodyTextSampleCount} of ${audit.totalBodyTextSamples} sampled text elements render under 12px at a mobile viewport width.`,

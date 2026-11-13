@@ -12,6 +12,7 @@ import { runMobileChecks } from "./checks/mobile";
 import { runAccessibilityChecks } from "./checks/accessibility";
 import { classifyPage, classifySiteType } from "./pageClassification";
 import { computeMetricResults, SEVERITY_WEIGHT } from "./metrics";
+import { crawlAdditionalPages, DEFAULT_CRAWL_BUDGET } from "./crawl";
 import type {
   AuditIssue,
   DraftIssue,
@@ -23,8 +24,41 @@ import type {
 // Checks only ever see a ScrapedPage, not the URL it came from, so they
 // build DraftIssue (no pageUrl) and this stamps the real one on
 // immediately after each check runs — see DraftIssue's doc comment.
+// affectedPageCount/affectedPageUrls start at the single-page default;
+// groupIssuesAcrossPages (below) is what merges same-id findings from
+// multiple pages into an accurate count.
 function withPageUrl(issues: DraftIssue[], pageUrl: string): AuditIssue[] {
-  return issues.map((issue) => ({ ...issue, pageUrl }));
+  return issues.map((issue) => ({ ...issue, pageUrl, affectedPageCount: 1, affectedPageUrls: [pageUrl] }));
+}
+
+// Checks run independently per page, so the raw per-page issue arrays can
+// contain the same check id more than once once a scan covers more than
+// one or two pages (e.g. the same missing-alt-text check firing on three
+// different product pages). This merges those into one finding with an
+// accurate affected-page count, rather than either counting the same
+// defect as multiple separate penalties, or — the bug this replaces —
+// silently dropping every occurrence after the first via a plain
+// id-keyed Set, which would have under-counted real, widespread problems
+// the moment a scan visited more than one page per check.
+export function groupIssuesAcrossPages(issues: AuditIssue[]): AuditIssue[] {
+  const groups = new Map<string, AuditIssue[]>();
+  for (const issue of issues) {
+    const existing = groups.get(issue.id);
+    if (existing) existing.push(issue);
+    else groups.set(issue.id, [issue]);
+  }
+
+  return [...groups.values()].map((group) => {
+    const [first] = group;
+    const affectedPageUrls = [...new Set(group.map((i) => i.pageUrl))];
+    return {
+      ...first,
+      affectedPageCount: affectedPageUrls.length,
+      // Representative examples, not a full dump — same discipline as
+      // Evidence.examples elsewhere.
+      affectedPageUrls: affectedPageUrls.slice(0, 10),
+    };
+  });
 }
 
 // Placeholder benchmark shown until the caller (app/api/scan/route.ts)
@@ -117,6 +151,7 @@ export async function scanProductPage(
 }
 
 export async function runFullScan(url: string): Promise<{ teaser: TeaserResults; full: FullResults }> {
+  const scanStartedAt = Date.now();
   const { browser, context } = await launchScanSession();
 
   try {
@@ -131,18 +166,39 @@ export async function runFullScan(url: string): Promise<{ teaser: TeaserResults;
     const productPromise = scanProductPage(context, page, url);
     const mobileAuditPromise = captureMobileRenderAudit(browser, url).catch(() => null);
 
+    // A preliminary siteType, computed before the crawl/product-page
+    // results are in, so the crawl's own per-page trust checks (which need
+    // a siteType to gate ecommerce-only findings) can start immediately
+    // rather than waiting on productPromise. Recomputed for real below once
+    // every page's results are in — this preliminary value can only ever
+    // be wrong in the narrow direction of calling a genuine ecommerce site
+    // "general" one checking cycle too early, never the other way, since a
+    // product page found later only ever makes classifySiteType MORE likely
+    // to say "ecommerce," not less (see its own doc comment).
+    const preliminarySiteType = classifySiteType(page, false);
+    const crawlPromise = crawlAdditionalPages(
+      context,
+      page,
+      url,
+      preliminarySiteType,
+      scanStartedAt,
+      DEFAULT_CRAWL_BUDGET
+    );
+
     const [
       psResult,
       { issues: productIssues, limitations: productLimitations, productPageUrl },
       mobileAudit,
-    ] = await Promise.all([pageSpeedPromise, productPromise, mobileAuditPromise]);
+      crawlResult,
+    ] = await Promise.all([pageSpeedPromise, productPromise, mobileAuditPromise, crawlPromise]);
 
     const industry = detectIndustry(page);
+    const anyProductPageFound = Boolean(productPageUrl) || crawlResult.productPageUrls.length > 0;
     // A real discovered product page is decisive; short of that,
     // classifySiteType looks for independent cart/shop + price-density
     // signals on the homepage itself — see its doc comment for why this
     // doesn't flip on a single stray signal.
-    const siteType = classifySiteType(page, Boolean(productPageUrl));
+    const siteType = classifySiteType(page, anyProductPageFound);
 
     const { issues: seoIssues, limitations: seoLimitations } = runSeoChecks(page);
     const { issues: uxIssues, limitations: uxLimitations } = runUxChecks(page, siteType);
@@ -164,27 +220,18 @@ export async function runFullScan(url: string): Promise<{ teaser: TeaserResults;
       ...withPageUrl(mobileIssues, url),
       ...withPageUrl(accessibilityIssues, url),
       ...withPageUrl(productIssues, productPageUrl ?? url),
+      ...crawlResult.pageResults.flatMap((pr) => withPageUrl(pr.issues, pr.url)),
     ];
 
-    // Defensive dedup: each check module only ever pushes a given issue id
-    // once per page today, so this shouldn't currently fire — but nothing
-    // structurally prevents two checks (now or in a future change) from
-    // emitting the same id, and a single real defect must never count as
-    // two penalties against the score. Keeps the first occurrence.
-    const seenIssueIds = new Set<string>();
-    const allIssues: AuditIssue[] = combinedIssues
-      .filter((issue) => {
-        if (seenIssueIds.has(issue.id)) return false;
-        seenIssueIds.add(issue.id);
-        return true;
-      })
-      .sort((a, b) => SEVERITY_WEIGHT[b.severity] - SEVERITY_WEIGHT[a.severity]);
+    const allIssues: AuditIssue[] = groupIssuesAcrossPages(combinedIssues).sort(
+      (a, b) => SEVERITY_WEIGHT[b.severity] - SEVERITY_WEIGHT[a.severity]
+    );
 
     const overallScore = calcScore(allIssues);
     const grade = scoreToGrade(overallScore);
     const summary = categorySummary(allIssues);
     const metrics = computeMetricResults(allIssues, {
-      productPageScanned: Boolean(productPageUrl),
+      productPageScanned: anyProductPageFound,
       pageSpeedAvailable: Boolean(psResult),
     });
     const highImpactCount = allIssues.filter(
@@ -200,6 +247,38 @@ export async function runFullScan(url: string): Promise<{ teaser: TeaserResults;
     if (productPageUrl) {
       pagesInspected.push({ url: productPageUrl, type: "product" });
     }
+    for (const pr of crawlResult.pageResults) {
+      pagesInspected.push({ url: pr.url, type: pr.pageType });
+    }
+
+    const pageInventory: FullResults["pageInventory"] = [
+      { url, pageType: "homepage", status: "SCANNED", skipReason: null, discoveredVia: "homepage" },
+      ...(productPageUrl
+        ? ([
+            {
+              url: productPageUrl,
+              pageType: "product",
+              status: "SCANNED",
+              skipReason: null,
+              discoveredVia: "homepage-link",
+            },
+          ] as FullResults["pageInventory"])
+        : []),
+      ...crawlResult.pageRecords,
+    ];
+
+    const pageTypesScanned = [...new Set(pagesInspected.map((p) => p.type))];
+
+    const coverage: TeaserResults["coverage"] = {
+      totalDiscovered: crawlResult.totalDiscovered,
+      pagesScanned: pagesInspected.length,
+      pagesFailed: crawlResult.pageRecords.filter((r) => r.status === "FAILED").length,
+      pagesSkipped: crawlResult.pageRecords.filter((r) => r.status === "SKIPPED").length,
+      pagesExcludedByBudget: crawlResult.pageRecords.filter((r) => r.status === "EXCLUDED_BY_BUDGET").length,
+      sitemapFound: crawlResult.sitemapFound,
+      crawlBudget: crawlResult.crawlBudget,
+      pageTypesScanned,
+    };
 
     const limitations: string[] = [
       ...seoLimitations,
@@ -208,10 +287,16 @@ export async function runFullScan(url: string): Promise<{ teaser: TeaserResults;
       ...mobileLimitations,
       ...accessibilityLimitations,
       ...productLimitations,
+      ...crawlResult.pageResults.flatMap((pr) => pr.limitations),
     ];
-    if (!productPageUrl) {
+    if (!productPageUrl && crawlResult.productPageUrls.length === 0) {
       limitations.push(
-        "No product page could be discovered and confidently classified alongside the homepage — this report covers the homepage only, not the full store."
+        "No product page could be discovered and confidently classified alongside the homepage — this report covers the pages actually listed below, not the full store."
+      );
+    }
+    if (coverage.totalDiscovered > coverage.pagesScanned - 1) {
+      limitations.push(
+        `This scan discovered ${coverage.totalDiscovered} page${coverage.totalDiscovered === 1 ? "" : "s"} beyond the homepage, but only inspected ${coverage.pagesScanned} page${coverage.pagesScanned === 1 ? "" : "s"} total (this scan's representative-sample budget) — this is not a full-site audit.`
       );
     }
 
@@ -228,9 +313,10 @@ export async function runFullScan(url: string): Promise<{ teaser: TeaserResults;
       categorySummary: summary,
       pageSpeed,
       screenshotUrl: page.screenshotDataUrl,
-      productPageScanned: Boolean(productPageUrl),
-      productPageUrl,
+      productPageScanned: anyProductPageFound,
+      productPageUrl: productPageUrl ?? crawlResult.productPageUrls[0] ?? null,
       pagesInspected,
+      coverage,
       limitations,
     };
 
@@ -240,6 +326,7 @@ export async function runFullScan(url: string): Promise<{ teaser: TeaserResults;
       recommendations: generateRecommendations(allIssues, metrics),
       pageUrl: url,
       scannedAt: new Date().toISOString(),
+      pageInventory,
     };
 
     return { teaser, full };

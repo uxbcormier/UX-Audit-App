@@ -6,11 +6,28 @@ const PRODUCT_PATH_PATTERN = /\/(products?|item|p)\//i;
 const SHOP_PATH_PATTERN = /\/(collections?|shop|category|categories|catalog)(\/|$)/i;
 const CART_PATH_PATTERN = /\/(cart|basket|bag)(\/|$)/i;
 const CHECKOUT_PATH_PATTERN = /\/checkout(\/|$)/i;
+const SEARCH_PATH_PATTERN = /\/search(\/|$)|[?&](q|query|s)=/i;
+const ABOUT_PATH_PATTERN = /\/(pages\/)?(about(-us)?|our-story|brand)(\/|$)/i;
+const CONTACT_PATH_PATTERN = /\/(pages\/)?contact(-us)?(\/|$)/i;
+const SHIPPING_RETURNS_PATH_PATTERN =
+  /\/(pages\/)?(policies\/)?(shipping|returns?|refunds?|shipping-returns|shipping-policy|refund-policy)(\/|$)/i;
+const FAQ_PATH_PATTERN = /\/(pages\/)?(faq|faqs|help|support)(\/|$)/i;
 const PRICE_PATTERN = /\$\s?\d[\d,]*(\.\d{2})?/g;
 const PURCHASE_LANGUAGE_PATTERN =
   /add to (cart|bag|basket)|buy now|select (a |your )?(size|colou?r|variant)/i;
 
-export type PageType = "homepage" | "product" | "collection" | "cart" | "checkout" | "unknown";
+export type PageType =
+  | "homepage"
+  | "product"
+  | "collection"
+  | "cart"
+  | "checkout"
+  | "search"
+  | "about"
+  | "contact"
+  | "shipping-returns"
+  | "faq"
+  | "unknown";
 
 export interface PageClassification {
   pageType: PageType;
@@ -33,6 +50,21 @@ export function classifyPage(page: ScrapedPage, url: string): PageClassification
   }
   if (CART_PATH_PATTERN.test(path)) {
     return { pageType: "cart", confidence: 85 };
+  }
+  if (SEARCH_PATH_PATTERN.test(url)) {
+    return { pageType: "search", confidence: 80 };
+  }
+  if (ABOUT_PATH_PATTERN.test(path)) {
+    return { pageType: "about", confidence: 75 };
+  }
+  if (CONTACT_PATH_PATTERN.test(path)) {
+    return { pageType: "contact", confidence: 75 };
+  }
+  if (SHIPPING_RETURNS_PATH_PATTERN.test(path)) {
+    return { pageType: "shipping-returns", confidence: 75 };
+  }
+  if (FAQ_PATH_PATTERN.test(path)) {
+    return { pageType: "faq", confidence: 70 };
   }
 
   const bodyText = page.$("body").text();
@@ -59,6 +91,48 @@ export function classifyPage(page: ScrapedPage, url: string): PageClassification
   }
 
   return { pageType: "unknown", confidence: 30 };
+}
+
+// A cheap, pre-fetch guess at page type from the URL and link text alone —
+// used only to prioritize which discovered URLs are worth spending the
+// crawl budget on (see discovery.ts), never to decide what checks apply or
+// to label a ScanPage's final pageType. classifyPage() above (which has the
+// actual DOM to look at) is the only authoritative classification; this is
+// deliberately simpler and allowed to be wrong; a bad prioritization guess
+// costs at most one crawl slot, which is a problem this budget mechanism
+// causes everywhere else anyway (10-15 pages is best-effort representative
+// sampling by design, not exhaustive coverage).
+export type UrlPriorityHint =
+  | "product"
+  | "collection"
+  | "cart"
+  | "checkout"
+  | "search"
+  | "about"
+  | "contact"
+  | "shipping-returns"
+  | "faq"
+  | "unknown";
+
+export function guessUrlPriority(url: string, linkText: string): UrlPriorityHint {
+  let path: string;
+  try {
+    path = new URL(url).pathname;
+  } catch {
+    path = url;
+  }
+  const text = linkText.toLowerCase();
+
+  if (CHECKOUT_PATH_PATTERN.test(path)) return "checkout";
+  if (CART_PATH_PATTERN.test(path) || /\b(cart|bag)\b/.test(text)) return "cart";
+  if (SEARCH_PATH_PATTERN.test(url)) return "search";
+  if (ABOUT_PATH_PATTERN.test(path) || /\babout\b/.test(text)) return "about";
+  if (CONTACT_PATH_PATTERN.test(path) || /\bcontact\b/.test(text)) return "contact";
+  if (SHIPPING_RETURNS_PATH_PATTERN.test(path) || /\b(shipping|returns?)\b/.test(text)) return "shipping-returns";
+  if (FAQ_PATH_PATTERN.test(path) || /\b(faq|help|support)\b/.test(text)) return "faq";
+  if (PRODUCT_PATH_PATTERN.test(path)) return "product";
+  if (SHOP_PATH_PATTERN.test(path)) return "collection";
+  return "unknown";
 }
 
 export type SiteType = "ecommerce" | "general";

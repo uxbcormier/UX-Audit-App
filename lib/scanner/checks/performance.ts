@@ -9,7 +9,7 @@ export function runPerformanceChecks(ps: PageSpeedResult): DraftIssue[] {
     issues.push({
       id: "perf-poor-mobile-score",
       category: "Performance",
-      metric: "Mobile Friction",
+      metric: "Mobile Experience",
       severity: "critical",
       title: `Poor mobile performance score (${ps.mobileScore}/100)`,
       observation: `The homepage scores ${ps.mobileScore}/100 on Google's mobile performance benchmark.`,
@@ -33,7 +33,7 @@ export function runPerformanceChecks(ps: PageSpeedResult): DraftIssue[] {
     issues.push({
       id: "perf-average-mobile-score",
       category: "Performance",
-      metric: "Mobile Friction",
+      metric: "Mobile Experience",
       severity: "high",
       title: `Below-average mobile performance (${ps.mobileScore}/100)`,
       observation: `The homepage scores ${ps.mobileScore}/100 on mobile, below Google's recommended threshold.`,
@@ -57,7 +57,7 @@ export function runPerformanceChecks(ps: PageSpeedResult): DraftIssue[] {
     issues.push({
       id: "perf-poor-lcp",
       category: "Performance",
-      metric: "Performance Risk",
+      metric: "Performance",
       severity: "critical",
       title: `Slow Largest Contentful Paint (${(ps.lcp / 1000).toFixed(1)}s)`,
       observation: `Largest Contentful Paint is ${(ps.lcp / 1000).toFixed(1)}s; Google recommends under 2.5s.`,
@@ -81,7 +81,7 @@ export function runPerformanceChecks(ps: PageSpeedResult): DraftIssue[] {
     issues.push({
       id: "perf-poor-cls",
       category: "Performance",
-      metric: "Performance Risk",
+      metric: "Performance",
       severity: "high",
       title: `High Cumulative Layout Shift (${ps.cls.toFixed(3)})`,
       observation: `Cumulative Layout Shift measures ${ps.cls.toFixed(3)}, well above Google's 0.1 threshold.`,
@@ -105,7 +105,7 @@ export function runPerformanceChecks(ps: PageSpeedResult): DraftIssue[] {
     issues.push({
       id: "perf-poor-ttfb",
       category: "Performance",
-      metric: "Performance Risk",
+      metric: "Performance",
       severity: "high",
       title: `Slow server response time (${Math.round(ps.ttfb)}ms TTFB)`,
       observation: `Time to First Byte is ${Math.round(ps.ttfb)}ms; Google recommends under 800ms.`,
@@ -129,7 +129,7 @@ export function runPerformanceChecks(ps: PageSpeedResult): DraftIssue[] {
     issues.push({
       id: "perf-desktop-gap",
       category: "Performance",
-      metric: "Performance Risk",
+      metric: "Performance",
       severity: "warning",
       title: "Large gap between mobile and desktop performance",
       observation: `Desktop scores ${ps.desktopScore}/100 versus ${ps.mobileScore}/100 on mobile — a significant disparity.`,

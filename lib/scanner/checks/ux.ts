@@ -55,7 +55,7 @@ export function runUxChecks(
     issues.push({
       id: "ux-no-cta",
       category: "UX",
-      metric: "Decision Complexity",
+      metric: "Decision Clarity",
       severity: "critical",
       title: "No clear call-to-action found",
       observation: "No purchase or action button (e.g. 'Shop Now') was detected above the fold.",
@@ -104,7 +104,7 @@ export function runUxChecks(
       issues.push({
         id: "ux-decision-paralysis",
         category: "UX",
-        metric: "Decision Complexity",
+        metric: "Decision Clarity",
         severity: "warning",
         title: "Many distinct action labels on the homepage",
         observation: `${visibleCtaLabels.size} distinct, visible call-to-action labels (e.g. "${sampleLabels}") were found on the homepage. This counts labels only — it doesn't confirm they visually compete or share the same hierarchy level.`,
@@ -144,7 +144,7 @@ export function runUxChecks(
     issues.push({
       id: "ux-no-contact",
       category: "UX",
-      metric: "Trust Coverage",
+      metric: "Trust & Reassurance",
       severity: "high",
       title: "No visible contact information",
       observation: "No phone number, email address, or chat widget was found on the homepage.",
@@ -205,7 +205,7 @@ export function runUxChecks(
     issues.push({
       id: "ux-weak-navigation",
       category: "UX",
-      metric: "Product Discovery Friction",
+      metric: "Product Discovery Experience",
       severity: "warning",
       title: "Sparse navigation menu",
       observation: `Only ${navLinks} navigation link${navLinks === 1 ? "" : "s"} were found in the header.`,
@@ -231,7 +231,7 @@ export function runUxChecks(
     issues.push({
       id: "ux-no-viewport",
       category: "UX",
-      metric: "Mobile Friction",
+      metric: "Mobile Experience",
       severity: "critical",
       title: "Missing mobile viewport meta tag",
       observation: "No viewport meta tag was found in the page head.",
@@ -256,7 +256,7 @@ export function runUxChecks(
     issues.push({
       id: "ux-homepage-ads",
       category: "UX",
-      metric: "Trust Coverage",
+      metric: "Trust & Reassurance",
       severity: "warning",
       title: "Third-party ad network detected on homepage",
       observation: "The homepage loads a script from a third-party ad network.",
@@ -298,7 +298,7 @@ export function runUxChecks(
       issues.push({
         id: "ux-logo-not-linked",
         category: "UX",
-        metric: "Product Discovery Friction",
+        metric: "Product Discovery Experience",
         severity: "low",
         title: "Site logo doesn't link to the homepage",
         observation: "A site logo was found, but it isn't wrapped in a link back to the homepage.",
@@ -337,7 +337,7 @@ export function runUxChecks(
     issues.push({
       id: "ux-nonclickable-dropdown-headings",
       category: "UX",
-      metric: "Product Discovery Friction",
+      metric: "Product Discovery Experience",
       severity: "warning",
       title: "Navigation dropdown headings aren't clickable links",
       observation: `${nonClickableHeadingCount} navigation menu item${nonClickableHeadingCount > 1 ? "s" : ""} with a dropdown submenu don't have a clickable link on the heading itself.`,

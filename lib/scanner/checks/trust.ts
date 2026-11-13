@@ -89,7 +89,7 @@ export function runTrustChecks(
       {
         id: "trust-no-payment-icons",
         category: "Trust",
-        metric: "Trust Coverage",
+        metric: "Trust & Reassurance",
         severity: "low",
         title: "No payment-method icons detected on the homepage",
         observation:
@@ -132,7 +132,7 @@ export function runTrustChecks(
       {
         id: "trust-no-security-claim",
         category: "Trust",
-        metric: "Trust Coverage",
+        metric: "Trust & Reassurance",
         severity: "low",
         title: "No security or guarantee language found on the homepage",
         observation: "No 'secure checkout', satisfaction-guarantee, or similar reassurance language was found on the homepage.",
@@ -167,7 +167,7 @@ export function runTrustChecks(
       {
       id: "trust-no-reviews",
       category: "Trust",
-      metric: "Trust Coverage",
+      metric: "Trust & Reassurance",
       severity: "high",
       title: "No customer reviews or social proof detected",
       observation: "No ratings, reviews, or testimonials appear on the homepage.",
@@ -203,7 +203,7 @@ export function runTrustChecks(
       {
       id: "trust-no-return-policy",
       category: "Trust",
-      metric: "Trust Coverage",
+      metric: "Trust & Reassurance",
       severity: "warning",
       title: "Return policy not visible on homepage",
       observation: "No mention of a return or refund policy appears on the main page.",
@@ -237,7 +237,7 @@ export function runTrustChecks(
       {
       id: "trust-no-privacy",
       category: "Trust",
-      metric: "Trust Coverage",
+      metric: "Trust & Reassurance",
       severity: "warning",
       title: "No privacy policy link found",
       observation: "No privacy policy link was found in the page.",
@@ -270,7 +270,7 @@ export function runTrustChecks(
       {
       id: "trust-no-about",
       category: "Trust",
-      metric: "Trust Coverage",
+      metric: "Trust & Reassurance",
       severity: "low",
       title: "No 'About Us' link found",
       observation: "No About page or brand story link was found in navigation or footer.",

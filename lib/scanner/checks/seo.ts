@@ -192,7 +192,7 @@ export function runSeoChecks(page: ScrapedPage): { issues: DraftIssue[]; limitat
     issues.push({
       id: "seo-no-ssl",
       category: "SEO",
-      metric: "Trust Coverage",
+      metric: "Trust & Reassurance",
       severity: "critical",
       title: "Site not using HTTPS",
       observation: "The homepage is not served over HTTPS.",

@@ -3,7 +3,6 @@ import * as cheerio from "cheerio";
 import type { ScrapedPage } from "../scraper";
 import { runTrustChecks } from "../checks/trust";
 import { runSeoChecks } from "../checks/seo";
-import { AuditIssue } from "../types";
 
 function makePage(
   html: string,
@@ -172,36 +171,3 @@ describe("research citation integrity", () => {
   });
 });
 
-describe("dedup safety net", () => {
-  it("combining issue lists with a duplicate id keeps only the first occurrence", () => {
-    const dupeId = "dupe-test-id";
-    const makeIssue = (confidence: number): AuditIssue => ({
-      id: dupeId,
-      category: "UX",
-      metric: "Trust Coverage",
-      severity: "low",
-      pageUrl: "https://example.com",
-      title: "x",
-      observation: "x",
-      evidence: { type: "structural", detail: "x" },
-      behavioralExplanation: "x",
-      businessImplication: "x",
-      businessImpact: "low",
-      confidence,
-      effort: "low",
-      recommendation: "x",
-      sourceLabel: "internal-heuristic",
-    });
-
-    const combined = [makeIssue(70), makeIssue(99)];
-    const seen = new Set<string>();
-    const deduped = combined.filter((issue) => {
-      if (seen.has(issue.id)) return false;
-      seen.add(issue.id);
-      return true;
-    });
-
-    expect(deduped).toHaveLength(1);
-    expect(deduped[0].confidence).toBe(70);
-  });
-});

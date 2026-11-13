@@ -104,9 +104,11 @@ describe("category-count reconciliation", () => {
   const makeIssue = (category: AuditIssue["category"], id: string): AuditIssue => ({
     id,
     category,
-    metric: "Trust Coverage",
+    metric: "Trust & Reassurance",
     severity: "low",
     pageUrl: "https://example.com",
+    affectedPageCount: 1,
+    affectedPageUrls: ["https://example.com"],
     title: "x",
     observation: "x",
     evidence: { type: "structural", detail: "x" },
