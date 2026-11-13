@@ -1,5 +1,6 @@
 import type { ScrapedPage } from "../scraper";
 import type { DraftIssue } from "../types";
+import type { SiteType } from "../pageClassification";
 import { cite } from "../research";
 import { normalizedBodyText } from "../normalize";
 
@@ -61,17 +62,25 @@ function hasPaymentIconEvidence(page: ScrapedPage, text: string): boolean {
   ).length > 0;
 }
 
-export function runTrustChecks(page: ScrapedPage): { issues: DraftIssue[]; limitations: string[] } {
+export function runTrustChecks(
+  page: ScrapedPage,
+  siteType: SiteType = "ecommerce"
+): { issues: DraftIssue[]; limitations: string[] } {
   const issues: DraftIssue[] = [];
   const limitations: string[] = [];
   const { $ } = page;
   const text = normalizedBodyText(page);
+  const isEcommerce = siteType === "ecommerce";
 
-  // Payment-method icons — independent from the security/guarantee check
-  // below, since a store can legitimately have one without the other, and
-  // conflating them (as the old single "trust badges" check did) produced a
-  // less specific, harder-to-act-on finding.
-  if (!hasPaymentIconEvidence(page, text)) {
+  // Payment-method icons only mean anything on a site that sells products
+  // directly — not applicable to a service/booking/informational site
+  // (no issue, no limitation; genuinely out of scope rather than unverified).
+  //
+  // Independent from the security/guarantee check below, since a store can
+  // legitimately have one without the other, and conflating them (as the
+  // old single "trust badges" check did) produced a less specific,
+  // harder-to-act-on finding.
+  if (isEcommerce && !hasPaymentIconEvidence(page, text)) {
     emitAbsenceFinding(
       page,
       issues,
@@ -106,7 +115,13 @@ export function runTrustChecks(page: ScrapedPage): { issues: DraftIssue[]; limit
 
   // Security / guarantee language — kept separate from payment icons (see
   // above). Text-based: these are near-universally phrases, not icons.
-  const hasSecurityClaim = /secure checkout|ssl secured|money.back|guarantee|norton|mcafee/i.test(text);
+  // Broadened beyond purely transactional phrasing ("secure checkout") to
+  // cover service-business reassurance language too (licensed, insured,
+  // certified), since this check now also runs on non-ecommerce sites.
+  const hasSecurityClaim =
+    /secure checkout|ssl secured|money.back|guarantee|norton|mcafee|licensed|insured|certified|bonded|accredited/i.test(
+      text
+    );
 
   if (!hasSecurityClaim) {
     emitAbsenceFinding(
@@ -173,10 +188,13 @@ export function runTrustChecks(page: ScrapedPage): { issues: DraftIssue[]; limit
     );
   }
 
-  // Return / refund policy
+  // Return / refund policy — a product-shipping concept with no equivalent
+  // modeled here for service/booking sites (which would have a
+  // cancellation policy instead, a different thing this scan doesn't
+  // check for) — ecommerce-only.
   const hasReturnPolicy = /return policy|refund|money.back guarantee|free returns|hassle.free/i.test(text);
 
-  if (!hasReturnPolicy) {
+  if (isEcommerce && !hasReturnPolicy) {
     emitAbsenceFinding(
       page,
       issues,

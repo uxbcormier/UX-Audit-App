@@ -1,6 +1,6 @@
 import type { BrowserContext } from "playwright-core";
 import { runPageSpeed } from "./pagespeed";
-import { launchScanSession, scrapeWithContext, type ScrapedPage } from "./scraper";
+import { captureMobileRenderAudit, launchScanSession, scrapeWithContext, type ScrapedPage } from "./scraper";
 import { detectIndustry } from "./industry";
 import { findProductLink, findShopLink } from "./productDiscovery";
 import { runSeoChecks } from "./checks/seo";
@@ -8,7 +8,8 @@ import { runUxChecks } from "./checks/ux";
 import { runTrustChecks } from "./checks/trust";
 import { runPerformanceChecks } from "./checks/performance";
 import { runProductChecks } from "./checks/product";
-import { classifyPage } from "./pageClassification";
+import { runMobileChecks } from "./checks/mobile";
+import { classifyPage, classifySiteType } from "./pageClassification";
 import { computeMetricResults, SEVERITY_WEIGHT } from "./metrics";
 import type {
   AuditIssue,
@@ -126,16 +127,26 @@ export async function runFullScan(url: string): Promise<{ teaser: TeaserResults;
     const pageSpeedPromise = runPageSpeed(url).catch(() => null);
     const page = await scrapeWithContext(context, url);
     const productPromise = scanProductPage(context, page, url);
+    const mobileAuditPromise = captureMobileRenderAudit(browser, url).catch(() => null);
 
-    const [psResult, { issues: productIssues, limitations: productLimitations, productPageUrl }] =
-      await Promise.all([pageSpeedPromise, productPromise]);
+    const [
+      psResult,
+      { issues: productIssues, limitations: productLimitations, productPageUrl },
+      mobileAudit,
+    ] = await Promise.all([pageSpeedPromise, productPromise, mobileAuditPromise]);
 
     const industry = detectIndustry(page);
+    // A real discovered product page is decisive; short of that,
+    // classifySiteType looks for independent cart/shop + price-density
+    // signals on the homepage itself — see its doc comment for why this
+    // doesn't flip on a single stray signal.
+    const siteType = classifySiteType(page, Boolean(productPageUrl));
 
     const { issues: seoIssues, limitations: seoLimitations } = runSeoChecks(page);
-    const { issues: uxIssues, limitations: uxLimitations } = runUxChecks(page);
-    const { issues: trustIssues, limitations: trustLimitations } = runTrustChecks(page);
+    const { issues: uxIssues, limitations: uxLimitations } = runUxChecks(page, siteType);
+    const { issues: trustIssues, limitations: trustLimitations } = runTrustChecks(page, siteType);
     const perfIssues = psResult ? runPerformanceChecks(psResult) : [];
+    const { issues: mobileIssues, limitations: mobileLimitations } = runMobileChecks(mobileAudit);
 
     // Product-page checks are stamped with the actual product page URL
     // (falling back to the homepage URL only in the defensive case where
@@ -147,6 +158,7 @@ export async function runFullScan(url: string): Promise<{ teaser: TeaserResults;
       ...withPageUrl(uxIssues, url),
       ...withPageUrl(trustIssues, url),
       ...withPageUrl(perfIssues, url),
+      ...withPageUrl(mobileIssues, url),
       ...withPageUrl(productIssues, productPageUrl ?? url),
     ];
 
@@ -189,6 +201,7 @@ export async function runFullScan(url: string): Promise<{ teaser: TeaserResults;
       ...seoLimitations,
       ...uxLimitations,
       ...trustLimitations,
+      ...mobileLimitations,
       ...productLimitations,
     ];
     if (!productPageUrl) {
@@ -201,6 +214,7 @@ export async function runFullScan(url: string): Promise<{ teaser: TeaserResults;
       overallScore,
       grade,
       industry,
+      siteType,
       benchmark: PLACEHOLDER_BENCHMARK,
       opportunitySummary: { highImpactCount },
       metrics,

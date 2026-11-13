@@ -326,6 +326,125 @@ export async function scrapeWithContext(
   }
 }
 
+// Real rendered-mobile-viewport evidence, captured the same way as
+// InteractiveElementEvidence above (page.evaluate against a live render) —
+// never guessed from the desktop-viewport capture, since layout at 375px
+// can differ completely from layout at 1280px (that's the whole point of a
+// dedicated mobile check). Null means the capture itself failed (navigation
+// error, crashed page, timeout) — checks must treat that as "mobile
+// evidence unavailable," never as "no mobile issues found."
+export interface MobileRenderAudit {
+  viewportWidth: number;
+  viewportHeight: number;
+  scrollWidth: number;
+  hasHorizontalOverflow: boolean;
+  totalVisibleTapTargets: number;
+  undersizedTapTargetCount: number;
+  totalBodyTextSamples: number;
+  smallBodyTextSampleCount: number;
+}
+
+// iPhone SE's logical viewport — the smallest common real device width still
+// in active use, so a layout that fits here fits everything larger too.
+const MOBILE_VIEWPORT = { width: 375, height: 667 };
+
+// WCAG 2.5.5's enhanced ("AAA") target-size guidance, not the mandatory
+// AA-level 24x24 (SC 2.5.8) — see research.ts's citation for this, which
+// phrases it as best-practice guidance rather than a compliance claim.
+const MIN_TAP_TARGET_PX = 44;
+
+// Below this, body copy becomes genuinely hard to read on a phone without
+// zooming — a widely-used mobile-readability floor, not a cited standard
+// (hence internal-heuristic sourcing on the check that uses this).
+const MIN_READABLE_FONT_PX = 12;
+
+// Opens its own short-lived mobile-viewport context rather than reusing the
+// scan's shared desktop context (viewport is fixed per-context in
+// Playwright) — closed before returning either way. Any failure (bad URL,
+// navigation timeout, crashed page) returns null rather than throwing, so
+// one failed mobile capture never fails the whole scan.
+export async function captureMobileRenderAudit(
+  browser: Browser,
+  url: string
+): Promise<MobileRenderAudit | null> {
+  const normalizedUrl = url.startsWith("http") ? url : `https://${url}`;
+  let context: BrowserContext | null = null;
+
+  try {
+    context = await browser.newContext({
+      userAgent:
+        "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1",
+      viewport: MOBILE_VIEWPORT,
+      isMobile: true,
+      hasTouch: true,
+      locale: "en-US",
+    });
+    const page = await context.newPage();
+
+    try {
+      await page.goto(normalizedUrl, { waitUntil: "domcontentloaded", timeout: 15000 });
+    } catch {
+      return null;
+    }
+    await page.waitForLoadState("networkidle", { timeout: 5000 }).catch(() => {});
+
+    const evidence = await page.evaluate(
+      ({ minTapTargetPx, minReadableFontPx }) => {
+        const isVisible = (el: Element): boolean => {
+          const style = window.getComputedStyle(el);
+          if (style.display === "none" || style.visibility === "hidden" || style.opacity === "0") {
+            return false;
+          }
+          const rect = el.getBoundingClientRect();
+          return rect.width > 0 && rect.height > 0;
+        };
+
+        const tapTargets = Array.from(
+          document.querySelectorAll('a, button, input[type="submit"], input[type="button"], [role="button"]')
+        ).filter(isVisible);
+        const undersizedTapTargetCount = tapTargets.filter((el) => {
+          const rect = el.getBoundingClientRect();
+          return rect.width < minTapTargetPx || rect.height < minTapTargetPx;
+        }).length;
+
+        // Sample leaf text-bearing elements (no element children) rather than
+        // every element, so a wrapping <div> doesn't get counted alongside
+        // the <p>/<span> actually rendering the text inside it.
+        const textEls = Array.from(document.querySelectorAll("p, span, li, a, button, div")).filter(
+          (el) => el.children.length === 0 && (el.textContent ?? "").trim().length > 0 && isVisible(el)
+        );
+        const smallBodyTextSampleCount = textEls.filter(
+          (el) => parseFloat(window.getComputedStyle(el).fontSize) < minReadableFontPx
+        ).length;
+
+        return {
+          scrollWidth: document.documentElement.scrollWidth,
+          totalVisibleTapTargets: tapTargets.length,
+          undersizedTapTargetCount,
+          totalBodyTextSamples: textEls.length,
+          smallBodyTextSampleCount,
+        };
+      },
+      { minTapTargetPx: MIN_TAP_TARGET_PX, minReadableFontPx: MIN_READABLE_FONT_PX }
+    );
+
+    return {
+      viewportWidth: MOBILE_VIEWPORT.width,
+      viewportHeight: MOBILE_VIEWPORT.height,
+      scrollWidth: evidence.scrollWidth,
+      hasHorizontalOverflow: evidence.scrollWidth > MOBILE_VIEWPORT.width,
+      totalVisibleTapTargets: evidence.totalVisibleTapTargets,
+      undersizedTapTargetCount: evidence.undersizedTapTargetCount,
+      totalBodyTextSamples: evidence.totalBodyTextSamples,
+      smallBodyTextSampleCount: evidence.smallBodyTextSampleCount,
+    };
+  } catch {
+    return null;
+  } finally {
+    await context?.close().catch(() => {});
+  }
+}
+
 // Convenience wrapper for callers that only need a single page and don't
 // want to manage the browser session themselves.
 export async function scrapePage(url: string): Promise<ScrapedPage> {

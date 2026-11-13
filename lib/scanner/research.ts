@@ -47,6 +47,13 @@ export const RESEARCH_LIBRARY = {
       "Google's published performance research defines thresholds (e.g. LCP, CLS) correlated with real-user experience quality, and uses them as a search ranking signal.",
     url: "https://web.dev/articles/vitals",
   },
+  wcagTargetSize: {
+    source: "W3C Web Content Accessibility Guidelines (WCAG 2.1)",
+    title: "Understanding Success Criterion 2.5.5: Target Size (Enhanced)",
+    summary:
+      "WCAG's enhanced (AAA) guidance recommends touch targets be at least 44x44 CSS pixels, since smaller targets are measurably harder to tap accurately — this is best-practice guidance, not the mandatory AA-level requirement (which sets a lower 24x24px floor).",
+    url: "https://www.w3.org/WAI/WCAG21/Understanding/target-size.html",
+  },
 } satisfies Record<string, ResearchCitation>;
 
 export type ResearchKey = keyof typeof RESEARCH_LIBRARY;

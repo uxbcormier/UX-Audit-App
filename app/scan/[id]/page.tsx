@@ -623,6 +623,11 @@ export function ScanResultsView({ scan, paymentResult }: { scan: ScanData; payme
               <p className="text-xs text-stone-text mt-2">
                 Scanned: {results.pagesInspected.map((p) => p.type).join(" + ")}
               </p>
+              {results.siteType === "general" && (
+                <p className="text-xs text-stone-text mt-1">
+                  This doesn&apos;t look like an online store, so ecommerce-only checks (payment icons, return policy, site search) were skipped — findings below cover universal UX best practices instead.
+                </p>
+              )}
               {results.limitations.length > 0 && (
                 <div className="mt-3 border border-amber-800/30 bg-amber-800/5 px-3 py-2.5">
                   <p className="text-xs font-medium text-amber-800 mb-1">Scan limitations</p>

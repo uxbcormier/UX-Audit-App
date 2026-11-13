@@ -1,5 +1,6 @@
 import type { ScrapedPage } from "../scraper";
 import type { DraftIssue } from "../types";
+import type { SiteType } from "../pageClassification";
 import { cite } from "../research";
 
 const AD_NETWORK_SIGNS =
@@ -13,10 +14,14 @@ function isHomeHref(href: string | undefined): boolean {
   return false;
 }
 
-export function runUxChecks(page: ScrapedPage): { issues: DraftIssue[]; limitations: string[] } {
+export function runUxChecks(
+  page: ScrapedPage,
+  siteType: SiteType = "ecommerce"
+): { issues: DraftIssue[]; limitations: string[] } {
   const issues: DraftIssue[] = [];
   const limitations: string[] = [];
   const { $ } = page;
+  const isEcommerce = siteType === "ecommerce";
 
   // Check for CTA buttons. We match on link/button text rather than class
   // names — sites use wildly different naming conventions for CTA styling
@@ -27,8 +32,14 @@ export function runUxChecks(page: ScrapedPage): { issues: DraftIssue[]; limitati
   // implemented as a <div role="button"> would otherwise produce a false
   // "not found" (see the identical fix in checks/product.ts for the bug
   // this caught in production: a real "Add to Bag" button reported missing).
+  //
+  // Keyword list covers both ecommerce ("shop", "add to cart") and
+  // service/booking-site phrasing ("book now", "request a quote", "sign
+  // up") — broadening it is safe (and improves accuracy) regardless of
+  // site type, since a false "no CTA found" is the worse failure mode.
   const normalizeText = (text: string) => text.replace(/\s+/g, " ").trim();
-  const ctaKeywords = /buy|shop|add to cart|checkout|get started|order|purchase/i;
+  const ctaKeywords =
+    /buy|shop|add to cart|checkout|get started|order|purchase|book now|request a quote|get a quote|sign up|schedule|reserve|apply now|contact us|request a demo|start free trial/i;
   const buttons = $('a, button, input[type="submit"], input[type="button"], [role="button"]').get();
   const ctaButtons = buttons.filter((el) => {
     const $el = $(el);
@@ -153,15 +164,17 @@ export function runUxChecks(page: ScrapedPage): { issues: DraftIssue[]; limitati
     });
   }
 
-  // Check for search functionality
+  // Check for search functionality — a catalog-navigation expectation that
+  // doesn't apply to a small service/booking site with a handful of pages;
+  // ecommerce-only (not applicable otherwise, no issue, no limitation).
   const hasSearch =
     $('input[type="search"], input[name="q"], input[placeholder*="search" i], [class*="search"]').length > 0;
 
-  if (!hasSearch && !page.evidenceComplete) {
+  if (isEcommerce && !hasSearch && !page.evidenceComplete) {
     limitations.push(
       "Could not conclusively verify whether site search is present on the homepage — the page's DOM capture was incomplete for this scan."
     );
-  } else if (!hasSearch) {
+  } else if (isEcommerce && !hasSearch) {
     issues.push({
       id: "ux-no-search",
       category: "UX",

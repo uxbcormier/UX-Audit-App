@@ -60,3 +60,35 @@ export function classifyPage(page: ScrapedPage, url: string): PageClassification
 
   return { pageType: "unknown", confidence: 30 };
 }
+
+export type SiteType = "ecommerce" | "general";
+
+// Whether this is a product-catalog ecommerce store at all, vs. a service,
+// booking, or informational site (a consultancy, Airbnb/Uber-style
+// marketplace, hotel/rental site, SaaS marketing page, etc). This gates
+// which checks even apply — a site with no cart/checkout model shouldn't be
+// marked down for lacking "Add to Cart" buttons or payment icons, any more
+// than an ecommerce store should be judged by booking-flow conventions it
+// was never going to have.
+//
+// Deliberately conservative: a real discovered product page is decisive on
+// its own; short of that, it takes multiple independent signals (price
+// density AND a cart/shop link) rather than one, since a single stray
+// dollar sign or a "shop our story" nav link shouldn't flip the
+// classification.
+export function classifySiteType(homepage: ScrapedPage, productPageFound: boolean): SiteType {
+  if (productPageFound) return "ecommerce";
+
+  const bodyText = homepage.$("body").text();
+  const priceCount = (bodyText.match(PRICE_PATTERN) ?? []).length;
+  const hasCartSignal = homepage.links.some(
+    (l) => CART_PATH_PATTERN.test(l.href) || /\b(cart|bag)\b/i.test(l.text)
+  );
+  const hasShopSignal = homepage.links.some((l) => SHOP_PATH_PATTERN.test(l.href));
+
+  if (priceCount >= 3 && (hasCartSignal || hasShopSignal)) {
+    return "ecommerce";
+  }
+
+  return "general";
+}

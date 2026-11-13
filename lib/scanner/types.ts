@@ -1,3 +1,5 @@
+import type { SiteType } from "./pageClassification";
+
 export type IssueSeverity = "critical" | "high" | "warning" | "low";
 export type IssueCategory = "SEO" | "UX" | "Trust" | "Performance" | "Conversion";
 export type IssueEffort = "low" | "medium" | "high";
@@ -155,6 +157,7 @@ export interface TeaserResults {
   overallScore: number;
   grade: string;
   industry: string;
+  siteType: SiteType;
   benchmark: IndustryBenchmarkInfo;
   opportunitySummary: OpportunitySummary;
   metrics: MetricResult[];
